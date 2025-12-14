@@ -13,3 +13,7 @@ def test_password_creation_successful():
 
 def test_password_str():
     assert str(Password("Abcde12345!_X")) == "Abcde12345!_X"
+
+def test_password_eq():
+    assert Password("Abcde12345!_X") == Password("Abcde12345!_X")
+    assert Password("Abcde12345!_X") != Password("Abcde12345_X")

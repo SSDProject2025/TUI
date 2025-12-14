@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from functionalities.description import Description
 from functionalities.entry import Entry
-from tui.menu import Menu
+from functionalities.menu import Menu
 
 
 @patch('builtins.input', side_effect=['1', '0'])
