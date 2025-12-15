@@ -1,8 +1,7 @@
 from app import App
 
 
-def main(name: str):
-    if __name__ == "__main__":
-        App().run()
+def main():
+    App().run()
 
-main(__name__)
+main()

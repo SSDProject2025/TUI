@@ -54,8 +54,6 @@ class App:
                 self.__change_tui_for_logged_user(response.json().get("key"))
                 return
 
-            except EmailNotValidError:
-                print("The email format is not valid, please try again")
             except PasswordException:
                 print("The password format is not valid, please try again")
             except RequestException as e:
