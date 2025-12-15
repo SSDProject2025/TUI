@@ -50,6 +50,7 @@ class App:
                 if response.status_code != 200 and response.status_code != 201:
                     raise RequestException(response.text)
 
+                print("\nLogged in successfully!")
                 self.__change_tui_for_logged_user(response.json().get("key"))
                 return
 
@@ -68,8 +69,8 @@ class App:
             try:
                 username = self.__read("Username", Username)
                 email = self.__read("Email", Email)
-                password = self.__read("Password", Password)
-                confirm_password = self.__read("Confirm Password", Password)
+                password = self.__read_password("Password", Password)
+                confirm_password = self.__read_password("Confirm Password", Password)
 
                 validate("Confirm Password", confirm_password, equals=password)
 
