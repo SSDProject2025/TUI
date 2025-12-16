@@ -2,7 +2,7 @@ import getpass
 import json
 import sys
 import textwrap
-from typing import Callable, Any, List
+from typing import Callable, Any, List, Tuple
 
 import requests
 from requests import RequestException
@@ -235,70 +235,70 @@ class App:
             rating_obj
         )
 
-    def __show_games_to_play(self, with_print=True) -> list[int]:
-        response = requests.get(
-            f"{self.__base_url}/user/me/",
-            headers={"Authorization": f"Token {str(self.__token)}"}
-        )
-
+    def __show_games_to_play(self, with_print=True) -> Tuple[list[int], list[int]]:
         response1 = requests.get(
             f"{self.__base_url}/games-to-play/",
             headers={"Authorization": f"Token {str(self.__token)}"}
         )
 
-        ids = []
+        ids_global = [] # List that saves the ids of the global game
+        ids_to_play = [] # List that saves the ids of the games to play
 
         if with_print:
             print(
-                f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE BY USERS':13}")
+                f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE BY USERS':13}"
+            )
             print("-" * 157)
 
-        for index, game in enumerate(response1.json(), start=1):
-            ids.append(game.get("id"))
-            title, description, genres, pegi, release_date, global_rating = self.__get_game(game.get("id"))
+        for index, item in enumerate(response1.json(), start=1):
+            ids_global.append(item.get("game").get("id"))
+            ids_to_play.append(item.get("id"))
+            game_id = item["game"]["id"]
+            title, description, genres, pegi, release_date, global_rating = self.__get_game(game_id)
 
             title_str = str(title)
             description_str = str(description)
-            g = ', '.join(str(g) for g in genres)
+            genres_str = ', '.join(str(g) for g in genres)
             pegi_str = str(pegi)
-            raw_rating = str(game.get("global_rating"))
 
+            # Gestione voto
+            raw_rating = str(item["game"].get("global_rating", "0.0"))
             if raw_rating == "0.0":
-                global_rating = "No votes yet"
+                vote_display = "No votes yet"
             else:
                 integer_str, decimal_str = raw_rating.split(".")
-                decimal_str = decimal_str.ljust(2, '0')
-                global_rating = GlobalRating.create(int(integer_str), int(decimal_str))
+                decimal_str = decimal_str.ljust(2, "0")
+                vote_display = GlobalRating.create(int(integer_str), int(decimal_str))
 
             title_lines = textwrap.wrap(title_str, 30)
             description_lines = textwrap.wrap(description_str, 40)
-
-            # Decide which number of line is the longest
             num_lines = max(len(title_lines), len(description_lines))
 
             for i in range(num_lines):
-                idx = str(index) if i == 0 else ""
-                t = title_lines[i] if i < len(title_lines) else ""
-                d = description_lines[i] if i < len(description_lines) else ""
-                genres_str = g if i == 0 else ""
-                p = pegi_str if i == 0 else ""
-                r = release_date if i == 0 else ""
-
                 if with_print:
-                    print(f"{idx:5} | {t:30} | {d:40} | {genres_str:20} | {p:6} | {r:12} | {str(global_rating)}")
+                    print(
+                        f"{str(index) if i == 0 else '':5} | "
+                        f"{title_lines[i] if i < len(title_lines) else '':30} | "
+                        f"{description_lines[i] if i < len(description_lines) else '':40} | "
+                        f"{genres_str if i == 0 else '':20} | "
+                        f"{pegi_str if i == 0 else '':6} | "
+                        f"{release_date if i == 0 else '':12} | "
+                        f"{str(vote_display) if i == 0 else ''}"
+                    )
 
         if with_print:
             print()
 
-        return ids
+        return (ids_global, ids_to_play)
 
-    def __show_games_played(self, with_print=True) -> list[int]:
+    def __show_games_played(self, with_print=True) -> Tuple[list[int], list[int]]:
         response = requests.get(
             f"{self.__base_url}/games-played/",
             headers={"Authorization": f"Token {str(self.__token)}"}
         )
 
-        ids = []
+        ids_global = []  # List that saves the ids of the global game
+        ids_played = []  # List that saves the ids of the games played
 
         if with_print:
             print(
@@ -308,7 +308,8 @@ class App:
             print("-" * 157)
 
         for index, item in enumerate(response.json(), start=1):
-            ids.append(item["id"])
+            ids_global.append(item.get("game").get("id"))
+            ids_played.append(item.get("id"))
 
             game = item["game"]
 
@@ -344,7 +345,7 @@ class App:
 
         if with_print:
             print()
-        return ids
+        return (ids_global, ids_played)
 
     def __add_game(self):
         pass
@@ -363,7 +364,7 @@ class App:
 
     def __add_game_to_games_to_play(self):
         ids = self.__show_games()
-        ids_to_play = self.__add_game_to_games_to_play(with_print=False)
+        ids_global, ids_to_play = self.__show_games_to_play(with_print=False)
 
         def builder(value: str) -> int:
             validate('value', int(value), min_value=0, max_value=len(ids))
@@ -373,7 +374,7 @@ class App:
         if index == 0:
             print('Cancelled!')
             return
-        elif ids[index - 1] in ids_to_play:
+        elif ids[index - 1] in ids_global:
             print('Game already in list')
             return
 
@@ -389,7 +390,7 @@ class App:
 
     def __add_game_to_games_played(self):
         ids = self.__show_games()
-        ids_played = self.__show_games_played(with_print=False)
+        ids_global, ids_played = self.__show_games_played(with_print=False)
 
         def builder(value: str) -> int:
             validate('value', int(value), min_value=0, max_value=len(ids))
@@ -402,7 +403,7 @@ class App:
         if index == 0:
             print('Cancelled!')
             return
-        elif ids[index - 1] in ids_played:
+        elif ids[index - 1] in ids_global:
             print('Game already in list')
             return
 
@@ -420,10 +421,10 @@ class App:
         print("Game added to games played!")
 
     def __remove_game_from_games_to_play(self):
-        ids = self.__show_games_to_play()
+        ids_global, ids_to_play = self.__show_games_to_play()
 
         def builder(value: str) -> int:
-            validate('value', int(value), min_value=0, max_value=len(ids))
+            validate('value', int(value), min_value=0, max_value=len(ids_to_play))
             return int(value)
 
         index = self.__read('Index (0 to cancel)', builder)
@@ -432,14 +433,30 @@ class App:
             return
 
         response = requests.delete(
-            f"{self.__base_url}/games-to-play/{ids[index - 1]}/",
+            f"{self.__base_url}/games-to-play/{ids_to_play[index - 1]}/",
             headers={"Authorization": f"Token {str(self.__token)}"},
         )
 
         print("Game removed from games to play!")
 
     def __remove_game_from_games_played(self):
-        pass
+        ids_global, ids_played = self.__show_games_played()
+
+        def builder(value: str) -> int:
+            validate('value', int(value), min_value=0, max_value=len(ids_played))
+            return int(value)
+
+        index = self.__read('Index (0 to cancel)', builder)
+        if index == 0:
+            print('Cancelled!')
+            return
+
+        response = requests.delete(
+            f"{self.__base_url}/games-played/{ids_played[index - 1]}/",
+            headers={"Authorization": f"Token {str(self.__token)}"},
+        )
+
+        print("Game removed from games played")
 
     @staticmethod
     def __read_password(prompt: str, builder: Callable) -> Any:
