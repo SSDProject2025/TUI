@@ -1,3 +1,4 @@
+from datetime import datetime
 import getpass
 import json
 import sys
@@ -9,6 +10,7 @@ from requests import RequestException
 from valid8 import ValidationError, validate
 
 from exceptions.primitives.password_exception import PasswordException
+from exceptions.primitives.pegi_ranking_exception import PegiRankingException
 from exceptions.primitives.username_exception import UsernameException
 from functionalities.description import Description
 from functionalities.entry import Entry
@@ -202,14 +204,18 @@ class App:
 
         return ids
 
-    def __show_genres(self) -> None:
+    def __show_genres(self) -> List[int]:
+        genres = []
         response = requests.get(f"{self.__base_url}/genre/")
 
         print(f"|\t\tGENRES:\t\t\t|")
 
-        for genre in response.json():
-            print(Genre(genre.get("name")))
+        for index, genre in enumerate(response.json(), start=1):
+            genres.append(genre.get("id"))
+            print(f"{index}: {Genre(genre.get("name"))}")
         print()
+
+        return genres
 
     def __get_game(self, id: int) -> tuple[GameTitle, GameDescription, list[Genre], Pegi, str, GlobalRating]:
         response = requests.get(f"{self.__base_url}/game/{id}/")
@@ -347,7 +353,79 @@ class App:
         return (ids_global, ids_played)
 
     def __add_game(self):
-        pass
+        def builder_year(value: str) -> int:
+            validate("value", int(value), min_value=1952, max_value=datetime.now().year)
+            return int(value)
+
+        def builder_month(value: str) -> int:
+            validate("value", int(value), min_value=1, max_value=12)
+            return int(value)
+
+        def builder_day(value: str) -> int:
+            validate("value", int(value), min_value=1, max_value=31)
+            return int(value)
+
+        def builder_number_of_genres(value: str) -> int:
+            validate('value', int(value), min_value=1, max_value=5)
+            return int(value)
+
+        def builder_pegi(value: str) -> 'Pegi':
+            validate("pegi_ranking_int", int(value), is_in=[3, 7, 12, 16, 18])
+            return Pegi(int(value))
+
+        description = self.__read("Description", GameDescription)
+        title = self.__read("Title", GameTitle)
+        genres_number = self.__read("Number of genres", builder_number_of_genres)
+        genres_to_choose = self.__show_genres()
+        genres = []
+
+        for i in range(genres_number):
+            while True:
+                try:
+                    index = int(input(f"Index {i + 1}: "))
+                    validate("index", index, min_value=1, max_value=len(genres_to_choose))
+
+                    selected_genre = genres_to_choose[index - 1]
+                    if selected_genre not in genres:
+                        genres.append(selected_genre)
+                        break
+                    else:
+                        print("Genre already selected. Please choose a different one.")
+                except ValidationError:
+                    print("Invalid index. Please try again")
+
+        pegi = self.__read("Pegi", builder_pegi)
+
+        year = self.__read("Release year", builder_year)
+        month = self.__read("Release month", builder_month)
+        day = self.__read("Release day", builder_day)
+
+        data = {
+            "description": str(description),
+            "title": str(title),
+            "pegi": pegi.pegi_ranking_int,
+            "release_date": f"{year}-{month:02d}-{day:02d}",
+            "genres": genres
+        }
+
+        # Adding a default image otherwise the backend gets angry
+        with open("placeholder_images/useful_formula.png", 'rb') as img_file:
+            files = {
+                'box_art': img_file
+            }
+
+            response = requests.post(
+                f"{self.__base_url}/game/",
+                data=data,
+                files=files,
+                headers={"Authorization": f"Token {str(self.__token)}"}
+            )
+
+        if response.status_code in [200, 201]:
+            print("Game added successfully!")
+        else:
+            print(f"Error: {response.status_code}")
+            print(response.text)
 
     def __add_genre(self):
         pass
