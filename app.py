@@ -22,6 +22,7 @@ from primitives.pegi import Pegi
 from primitives.token import Token
 from primitives.username import Username
 from functionalities.menu import Menu
+from primitives.vote import Vote
 
 
 class App:
@@ -175,7 +176,14 @@ class App:
             genres = [self.__get_genre(id) for id in game.get("genres")]
             pegi = str(Pegi(game.get("pegi")))
             release_date = game.get("release_date")
-            global_rating = GlobalRating(game.get("global_rating")  * 1000) if game.get("global_rating") != "0.0" else "No votes yet"
+
+            raw_rating = str(game.get("global_rating"))
+            if raw_rating == "0.0":
+                global_rating = "No votes yet"
+            else:
+                integer_str, decimal_str = raw_rating.split(".")
+                decimal_str = decimal_str.ljust(2, '0')
+                global_rating = GlobalRating.create(int(integer_str), int(decimal_str))
 
             title_lines = textwrap.wrap(title, 30)
             description_lines = textwrap.wrap(description, 40)
@@ -190,9 +198,7 @@ class App:
                 g = ', '.join(str(g) for g in genres) if i == 0 else ""
                 p = pegi if i == 0 else ""
                 r = release_date if i == 0 else ""
-                g_r = global_rating if i == 0 else ""
-
-                print(f"{idx:5} | {t:30} | {d:40} | {g:20} | {p:6} | {r:12} | {g_r:7}")
+                print(f"{idx:5} | {t:30} | {d:40} | {g:20} | {p:6} | {r:12} | {str(global_rating)}")
         print()
 
         return ids
@@ -229,7 +235,7 @@ class App:
             rating_obj
         )
 
-    def __show_games_to_play(self) -> list[int]:
+    def __show_games_to_play(self, with_print=True) -> list[int]:
         response = requests.get(
             f"{self.__base_url}/user/me/",
             headers={"Authorization": f"Token {str(self.__token)}"}
@@ -242,9 +248,10 @@ class App:
 
         ids = []
 
-        print(
-            f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE BY USERS':13}")
-        print("-" * 157)
+        if with_print:
+            print(
+                f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE BY USERS':13}")
+            print("-" * 157)
 
         for index, game in enumerate(response1.json(), start=1):
             ids.append(game.get("id"))
@@ -254,7 +261,14 @@ class App:
             description_str = str(description)
             g = ', '.join(str(g) for g in genres)
             pegi_str = str(pegi)
-            global_rating_str = str(global_rating) if str(global_rating) != "0.0" else "No votes yet"
+            raw_rating = str(game.get("global_rating"))
+
+            if raw_rating == "0.0":
+                global_rating = "No votes yet"
+            else:
+                integer_str, decimal_str = raw_rating.split(".")
+                decimal_str = decimal_str.ljust(2, '0')
+                global_rating = GlobalRating.create(int(integer_str), int(decimal_str))
 
             title_lines = textwrap.wrap(title_str, 30)
             description_lines = textwrap.wrap(description_str, 40)
@@ -269,16 +283,68 @@ class App:
                 genres_str = g if i == 0 else ""
                 p = pegi_str if i == 0 else ""
                 r = release_date if i == 0 else ""
-                g_r = global_rating_str if i == 0 else ""
 
-                print(f"{idx:5} | {t:30} | {d:40} | {genres_str:20} | {p:6} | {r:12} | {g_r:7}")
+                if with_print:
+                    print(f"{idx:5} | {t:30} | {d:40} | {genres_str:20} | {p:6} | {r:12} | {str(global_rating)}")
 
-        print()
+        if with_print:
+            print()
 
         return ids
 
-    def __show_games_played(self):
-        pass
+    def __show_games_played(self, with_print=True) -> list[int]:
+        response = requests.get(
+            f"{self.__base_url}/games-played/",
+            headers={"Authorization": f"Token {str(self.__token)}"}
+        )
+
+        ids = []
+
+        if with_print:
+            print(
+                f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | "
+                f"{'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE GIVEN':13}"
+            )
+            print("-" * 157)
+
+        for index, item in enumerate(response.json(), start=1):
+            ids.append(item["id"])
+
+            game = item["game"]
+
+            title = GameTitle(game["title"])
+            description = GameDescription(game["description"])
+            genres = [self.__get_genre(g) for g in game["genres"]]
+            pegi = Pegi(game["pegi"])
+            release_date = game["release_date"]
+
+            vote = Vote(item["rating"])
+
+            title_str = str(title)
+            description_str = str(description)
+            g = ', '.join(str(gen) for gen in genres)
+            pegi_str = str(pegi)
+            vote_str = str(vote)
+
+            title_lines = textwrap.wrap(title_str, 30)
+            description_lines = textwrap.wrap(description_str, 40)
+            num_lines = max(len(title_lines), len(description_lines))
+
+            if with_print:
+                for i in range(num_lines):
+                    print(
+                        f"{str(index) if i == 0 else '':5} | "
+                        f"{title_lines[i] if i < len(title_lines) else '':30} | "
+                        f"{description_lines[i] if i < len(description_lines) else '':40} | "
+                        f"{g if i == 0 else '':20} | "
+                        f"{pegi_str if i == 0 else '':6} | "
+                        f"{release_date if i == 0 else '':12} | "
+                        f"{vote_str if i == 0 else ''}"
+                    )
+
+        if with_print:
+            print()
+        return ids
 
     def __add_game(self):
         pass
@@ -297,6 +363,7 @@ class App:
 
     def __add_game_to_games_to_play(self):
         ids = self.__show_games()
+        ids_to_play = self.__add_game_to_games_to_play(with_print=False)
 
         def builder(value: str) -> int:
             validate('value', int(value), min_value=0, max_value=len(ids))
@@ -305,6 +372,9 @@ class App:
         index = self.__read('Index (0 to cancel)', builder)
         if index == 0:
             print('Cancelled!')
+            return
+        elif ids[index - 1] in ids_to_play:
+            print('Game already in list')
             return
 
         response = requests.post(
@@ -318,7 +388,36 @@ class App:
         print("Game added to games to play!")
 
     def __add_game_to_games_played(self):
-        pass
+        ids = self.__show_games()
+        ids_played = self.__show_games_played(with_print=False)
+
+        def builder(value: str) -> int:
+            validate('value', int(value), min_value=0, max_value=len(ids))
+            return int(value)
+
+        def vote_builder(value: str) -> 'Vote':
+            return Vote(int(value))
+
+        index = self.__read('Index (0 to cancel)', builder)
+        if index == 0:
+            print('Cancelled!')
+            return
+        elif ids[index - 1] in ids_played:
+            print('Game already in list')
+            return
+
+        vote = self.__read('Vote', vote_builder)
+
+        response = requests.post(
+            f"{self.__base_url}/games-played/",
+            json={
+                "game": ids[index - 1],
+                "rating": vote.vote,
+            },
+            headers={"Authorization": f"Token {str(self.__token)}"},
+        )
+
+        print("Game added to games played!")
 
     def __remove_game_from_games_to_play(self):
         ids = self.__show_games_to_play()

@@ -23,7 +23,7 @@ class GlobalRating:
             raise GlobalRatingException
 
     def __str__(self):
-        return f"{self.value_in_decimals // 100}.{self.value_in_decimals % 1000:02}"
+        return f"{self.value_in_decimals // 100}.{self.value_in_decimals % 100:02}"
 
     @staticmethod
     def create(integer: int, decimal: int) -> 'GlobalRating':
