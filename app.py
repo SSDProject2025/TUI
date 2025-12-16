@@ -4,7 +4,6 @@ import sys
 from typing import Callable, Any
 
 import requests
-from email_validator import EmailNotValidError
 from requests import RequestException
 from valid8 import ValidationError, validate
 
@@ -89,14 +88,19 @@ class App:
                 return
             except UsernameException:
                 print(UsernameException.help_message + ". Please try again")
-            except EmailNotValidError:
-                print("Email format not valid. Please try again")
             except PasswordException:
                 print(PasswordException.help_message + ". Please try again")
             except ValidationError:
                 print("The two passwords do not match. Please try again")
             except RequestException as e:
-                print(e.json().get("error"))
+                error_json = json.loads(str(e))
+                msg = next(iter(error_json.values()))
+
+                # It may happen that Django decides that the error message is in a list
+                if isinstance(msg, list):
+                    msg = msg[0]
+
+                print(msg)
 
 
     def __change_tui_for_logged_user(self, token: str) -> None:
