@@ -147,7 +147,7 @@ def test_app_show_games(mock_get_genre, mocked_get, mocked_print, mock_input):
             "genres": [1, 2],
             "pegi": 3,
             "release_date": "2025-01-01",
-            "global_rating": "4.5"
+            "global_rating": "0.0"
         }
     ]
 
@@ -156,12 +156,13 @@ def test_app_show_games(mock_get_genre, mocked_get, mocked_print, mock_input):
     App().run()
 
     mocked_print.assert_any_call(
+        "1     | "
         "GoodGame                       | "
         "A fantastic game                         | "
         "MMO, RPG             | "
         "PEGI 3 | "
         "2025-01-01   | "
-        "4.5    "
+        "No votes yet"
     )
 
 
