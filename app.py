@@ -30,7 +30,6 @@ class App:
     __base_url: str = "http://localhost:8000/api/v1"
     __token: Token
     def __init__(self):
-        self.__move_game_from_games_to_play_to_games_played = None
         self.__menu = ((Menu.Builder(Description("Fiordispino App"), auto_select=lambda: None).
                        with_entry(Entry.create("1", "Login", on_selected=lambda: self.__login()))).
                        with_entry(Entry.create("2", "Register", on_selected=lambda: self.__register())).
@@ -149,7 +148,7 @@ class App:
                        with_entry(Entry.create("6", "Add game to games played", on_selected=lambda: self.__add_game_to_games_played())).
                        with_entry(Entry.create("7", "Remove game from games to play", on_selected=lambda: self.__remove_game_from_games_to_play())).
                        with_entry(Entry.create("8", "Remove game from games played", on_selected=lambda: self.__remove_game_from_games_played())).
-                       with_entry(Entry.create("9", "Move game from games to play to games played", on_selected= lambda: self.__move_game_from_games_to_play_to_games_played)).
+                       with_entry(Entry.create("9", "Move game from games to play to games played", on_selected= lambda: self.__move_game_from_games_to_play_to_games_played())).
                        with_entry(Entry.create("10", "Logout", on_selected=lambda: None, is_exit=True)).
                        with_entry(Entry.create("0", "Exit", on_selected=lambda: sys.exit("Goodbye!"), is_exit=True)).
                        build())
@@ -362,7 +361,7 @@ class App:
     def __ban_user(self):
         pass
 
-    def __add_game_to_games_to_play(self):
+    def __add_game_to_games_to_play(self) -> None:
         ids = self.__show_games()
         ids_global, ids_to_play = self.__show_games_to_play(with_print=False)
 
@@ -388,7 +387,7 @@ class App:
 
         print("Game added to games to play!")
 
-    def __add_game_to_games_played(self):
+    def __add_game_to_games_played(self) -> None:
         ids = self.__show_games()
         ids_global, ids_played = self.__show_games_played(with_print=False)
 
@@ -420,7 +419,7 @@ class App:
 
         print("Game added to games played!")
 
-    def __remove_game_from_games_to_play(self):
+    def __remove_game_from_games_to_play(self) -> None:
         ids_global, ids_to_play = self.__show_games_to_play()
 
         def builder(value: str) -> int:
@@ -439,7 +438,7 @@ class App:
 
         print("Game removed from games to play!")
 
-    def __remove_game_from_games_played(self):
+    def __remove_game_from_games_played(self) -> None:
         ids_global, ids_played = self.__show_games_played()
 
         def builder(value: str) -> int:
@@ -457,6 +456,39 @@ class App:
         )
 
         print("Game removed from games played")
+
+    def __move_game_from_games_to_play_to_games_played(self) -> None:
+        ids_global, ids_to_play = self.__show_games_to_play()
+
+        def builder(value: str) -> int:
+            validate('value', int(value), min_value=0, max_value=len(ids_to_play))
+            return int(value)
+
+        def vote_builder(value: str) -> 'Vote':
+            return Vote(int(value))
+
+        index = self.__read('Index (0 to cancel)', builder)
+        if index == 0:
+            print('Cancelled!')
+            return
+
+        response = requests.delete(
+            f"{self.__base_url}/games-to-play/{ids_to_play[index - 1]}/",
+            headers={"Authorization": f"Token {str(self.__token)}"},
+        )
+
+        vote = self.__read('Vote', vote_builder)
+
+        response = requests.post(
+            f"{self.__base_url}/games-played/",
+            json={
+                "game": ids_global[index - 1],
+                "rating": vote.vote,
+            },
+            headers={"Authorization": f"Token {str(self.__token)}"},
+        )
+
+        print("Game moved to games played!")
 
     @staticmethod
     def __read_password(prompt: str, builder: Callable) -> Any:
