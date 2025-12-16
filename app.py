@@ -208,13 +208,26 @@ class App:
 
     def __get_game(self, id: int) -> tuple[GameTitle, GameDescription, list[Genre], Pegi, str, GlobalRating]:
         response = requests.get(f"{self.__base_url}/game/{id}/")
+        data = response.json()
 
-        return (GameTitle(response.json().get("title")),
-                GameDescription(response.json().get("description")),
-                [self.__get_genre(id) for id in response.json().get("genres")],
-                Pegi(response.json().get("pegi")),
-                response.json().get("release_date"),
-                GlobalRating(response.json().get("global_rating") * 1000) if response.json().get("global_rating") != "0.0" else "No vcotes yet")
+        raw_rating = str(data.get("global_rating"))
+
+        if raw_rating == "0.0":
+            rating_obj = "No votes yet"
+        else:
+            integer_str, decimal_str = raw_rating.split(".")
+            decimal_str = decimal_str.ljust(2, '0')
+
+            rating_obj = GlobalRating.create(int(integer_str), int(decimal_str))
+
+        return (
+            GameTitle(data.get("title")),
+            GameDescription(data.get("description")),
+            [self.__get_genre(g_id) for g_id in data.get("genres")],
+            Pegi(data.get("pegi")),
+            data.get("release_date"),
+            rating_obj
+        )
 
     def __show_games_to_play(self) -> list[int]:
         response = requests.get(

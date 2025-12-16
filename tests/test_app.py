@@ -242,3 +242,54 @@ def test_show_games_to_play(mocked_get_game, mocked_get, mocked_print):
         "2025-01-01   | "
         "No votes yet"
     )
+
+
+@patch("app.GlobalRating.create")
+@patch("app.requests.get")
+@patch("app.App._App__get_genre")
+def test_get_game_success(mock_get_genre, mock_requests_get, mock_rating_create):
+    mock_get_genre.return_value = Genre("Action")
+    mock_rating_create.return_value = "Rated 4.50"
+
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        "id": 1,
+        "title": "Super Game",
+        "description": "Description",
+        "genres": [1],
+        "pegi": 18,
+        "release_date": "2023-10-10",
+        "global_rating": 4.5
+    }
+    mock_requests_get.return_value = mock_response
+
+    app = App()
+    result = app._App__get_game(1)
+    mock_rating_create.assert_called_with(4, 50)
+
+    assert result[5] == "Rated 4.50"
+
+    assert str(result[0]) == "Super Game"
+
+
+@patch("app.requests.get")
+@patch("app.App._App__get_genre")
+def test_get_game_no_votes(mock_get_genre, mock_requests_get):
+    mock_get_genre.return_value = Genre("Action")
+
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        "id": 1,
+        "title": "New Game",
+        "description": "Desc",
+        "genres": [1],
+        "pegi": 3,
+        "release_date": "2024-01-01",
+        "global_rating": "0.0"  # Caso 0.0
+    }
+    mock_requests_get.return_value = mock_response
+
+    app = App()
+    result = app._App__get_game(1)
+
+    assert result[5] == "No votes yet"
