@@ -1,6 +1,7 @@
 import getpass
 import json
 import sys
+import textwrap
 from typing import Callable, Any
 
 import requests
@@ -12,7 +13,10 @@ from exceptions.primitives.username_exception import UsernameException
 from functionalities.description import Description
 from functionalities.entry import Entry
 from primitives.email import Email
+from primitives.game_title import GameTitle
+from primitives.genre import Genre
 from primitives.password import Password
+from primitives.pegi import Pegi
 from primitives.token import Token
 from primitives.username import Username
 from functionalities.menu import Menu
@@ -27,6 +31,7 @@ class App:
                        with_entry(Entry.create("1", "Login", on_selected=lambda: self.__login()))).
                        with_entry(Entry.create("2", "Register", on_selected=lambda: self.__register())).
                        with_entry(Entry.create("3", "Show Games", on_selected=lambda: self.__show_games())).
+                       with_entry(Entry.create("4", "Show Genres", on_selected=lambda: self.__show_genres())).
                        with_entry(Entry.create("0", "Exit", on_selected=lambda: print("Goodbye!"), is_exit=True)).
                        build())
 
@@ -107,15 +112,49 @@ class App:
         self.__token = Token(token)
         self.__menu = ((Menu.Builder(Description("Fiordispino App"), auto_select=lambda: None).
                        with_entry(Entry.create("1", "Show Games", on_selected=lambda: self.__show_games())).
-                       with_entry(Entry.create("2", "Show games to play", on_selected=lambda: self.__show_games_to_play())).
-                       with_entry(Entry.create("3", "Show games played", on_selected=lambda: self.__show_games_played()))).
-                       with_entry(Entry.create("4", "Logout", on_selected=lambda: None, is_exit=True)).
+                       with_entry(Entry.create("2", "Show Genres", on_selected=lambda: self.__show_genres())).
+                       with_entry(Entry.create("3", "Show games to play", on_selected=lambda: self.__show_games_to_play())).
+                       with_entry(Entry.create("4", "Show games played", on_selected=lambda: self.__show_games_played()))).
+                       with_entry(Entry.create("5", "Logout", on_selected=lambda: None, is_exit=True)).
                        with_entry(Entry.create("0", "Exit", on_selected=lambda: sys.exit("Goodbye!"), is_exit=True)).
                        build())
 
         self.run()
 
+    def __get_genre(self, id: int) -> 'Genre':
+        response = requests.get(f"{self.__base_url}/genre/{id}/")
+
+        return Genre(response.json().get("name"))
+
     def __show_games(self) -> None:
+        response = requests.get(f"{self.__base_url}/game/")
+
+        print(f"{'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12}")
+        print("-" * 120)
+        for game in response.json():
+            title = str(GameTitle(game.get("title")))
+            description = str(Description(game.get("description")))
+            genres = [self.__get_genre(id) for id in game.get("genres")]
+            pegi = str(Pegi(game.get("pegi")))
+            release_date = game.get("release_date", "")
+
+
+            title_lines = textwrap.wrap(title, 30)
+            description_lines = textwrap.wrap(description, 40)
+
+            # Decide which number of line is the longest
+            num_lines = max(len(title_lines), len(description_lines))
+
+            for i in range(num_lines):
+                t = title_lines[i] if i < len(title_lines) else ""
+                d = description_lines[i] if i < len(description_lines) else ""
+                g = ', '.join(str(g) for g in genres) if i == 0 else ""
+                p = pegi if i == 0 else ""
+                r = release_date if i == 0 else ""
+
+                print(f"{t:30} | {d:40} | {g:20} | {p:6} | {r:12}")
+
+    def __show_genres(self) -> None:
         pass
 
     def __show_games_to_play(self):

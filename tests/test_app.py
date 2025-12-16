@@ -4,6 +4,8 @@ from app import App
 from main import main
 from unittest.mock import patch, Mock
 
+from primitives.genre import Genre
+
 
 @patch("builtins.input", side_effect=["0"])
 @patch("builtins.print")
@@ -14,9 +16,9 @@ def test_app_main(mocked_print, mocked_input):
     mocked_print.assert_any_call("Goodbye!")
     mocked_input.assert_called()
 
-@patch("getpass.getpass", return_value="string12")
+@patch("getpass.getpass", side_effect=["string12"])
 @patch("requests.post")
-@patch("builtins.input", side_effect=["1", "user@gmail.com", "4", "0"])
+@patch("builtins.input", side_effect=["1", "user@gmail.com", "4"])
 @patch("builtins.print")
 def test_app_login(mocked_print, mocked_input, mocked_post, mocked_getpass):
     response = Mock()
@@ -29,7 +31,7 @@ def test_app_login(mocked_print, mocked_input, mocked_post, mocked_getpass):
     mocked_print.assert_any_call("\nLogged in successfully!")
 
 
-@patch("getpass.getpass", return_value="string12")
+@patch("getpass.getpass", side_effect=["string12"])
 @patch("requests.post")
 @patch("builtins.input", side_effect=["1", "user@gmail.com", "0"])
 @patch("builtins.print")
@@ -44,7 +46,7 @@ def test_app_login_failed_response(mocked_print, mocked_input, mocked_post, mock
 
     assert any("Invalid credentials" in str(call.args[0]) for call in mocked_print.call_args_list)
 
-@patch("getpass.getpass", return_value="string12")
+@patch("getpass.getpass", side_effect=["string12"])
 @patch("builtins.input", side_effect=["1", "user@"])
 @patch("builtins.print")
 def test_app_login_wrong_email(mocked_print, mocked_input, mocked_getpass):
@@ -53,7 +55,7 @@ def test_app_login_wrong_email(mocked_print, mocked_input, mocked_getpass):
     assert any("There must be something after the @-sign." in str(call.args[0]) for call in mocked_print.call_args_list)
 
 
-@patch("getpass.getpass", return_value="s")
+@patch("getpass.getpass", side_effect=["s"])
 @patch("builtins.input", side_effect=["1", "user@gmail.com"])
 @patch("builtins.print")
 def test_app_login_wrong_password_format(mocked_print, mocked_input, mocked_getpass):
@@ -63,7 +65,7 @@ def test_app_login_wrong_password_format(mocked_print, mocked_input, mocked_getp
 
 @patch("getpass.getpass", side_effect=["string12", "string12"])
 @patch("requests.post")
-@patch("builtins.input", side_effect=["2", "giovanni", "giovanni@gmail.com", "4", "0"])
+@patch("builtins.input", side_effect=["2", "giovanni", "giovanni@gmail.com", "4"])
 @patch("builtins.print")
 def test_app_register(mocked_print, mocked_input, mocked_post, mocked_getpass):
     response = Mock()
@@ -75,7 +77,7 @@ def test_app_register(mocked_print, mocked_input, mocked_post, mocked_getpass):
 
     mocked_print.assert_any_call("\nLogged in successfully!")
 
-@patch("getpass.getpass", return_value="string12")
+@patch("getpass.getpass", side_effect=["password", "password"])
 @patch("requests.post")
 @patch("builtins.input", side_effect=["2", "giovanni", "giovanni@gmail.com", "0"])
 @patch("builtins.print")
@@ -98,7 +100,7 @@ def test_app_register_invalid_username(mocked_print, mocked_input):
 
     mocked_print.assert_any_call("Invalid username: it should have between 1 and 150 characters and can include numbers and special characters in [_@+.-]. Please try again")
 
-@patch("getpass.getpass", return_value="")
+@patch("getpass.getpass", side_effect=[""])
 @patch("builtins.input", side_effect=["2", "gino", "giovanni@gmail.com", "0"])
 @patch("builtins.print")
 def test_app_register_invalid_password(mocked_print, mocked_input, mocked_getpass):
@@ -113,3 +115,37 @@ def test_app_register_passwords_dont_match(mocked_print, mocked_input, mocked_ge
     App().run()
 
     mocked_print.assert_any_call("The two passwords do not match. Please try again")
+
+@patch("builtins.input", side_effect=["3", "0"])
+@patch("builtins.print")
+@patch("requests.get")
+@patch("app.App._App__get_genre", side_effect=[Genre("MMO"), Genre("RPG")])
+def test_app_show_games(mock_get_genre, mocked_get, mocked_print, mock_input):
+    response = Mock()
+    response.json.return_value = [
+        {
+            "id": 1,
+            "title": "GoodGame",
+            "description": "A fantastic game",
+            "genres": [1, 2],
+            "pegi": 3,
+            "release_date": "2025-01-01"
+        }
+    ]
+
+    mocked_get.return_value = response
+
+    App().run()
+
+    mocked_print.assert_any_call("GoodGame                       | A fantastic game                         | MMO, RPG             | PEGI 3 | 2025-01-01  ")
+
+
+@patch("app.requests.get")
+def test_app_get_genre(mocked_get):
+    response = Mock()
+    response.json.return_value = {"name": "Action"}
+    mocked_get.return_value = response
+
+    app = App()
+    genre = app._App__get_genre(1)
+    assert isinstance(genre, Genre)
