@@ -153,9 +153,16 @@ class App:
                 r = release_date if i == 0 else ""
 
                 print(f"{t:30} | {d:40} | {g:20} | {p:6} | {r:12}")
+        print()
 
     def __show_genres(self) -> None:
-        pass
+        response = requests.get(f"{self.__base_url}/genre/")
+
+        print(f"|\t\tGENRES:\t\t\t|")
+
+        for genre in response.json():
+            print(Genre(genre.get("name")))
+        print()
 
     def __show_games_to_play(self):
         pass

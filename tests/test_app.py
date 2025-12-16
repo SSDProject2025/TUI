@@ -39,7 +39,6 @@ def test_app_login_failed_response(mocked_print, mocked_input, mocked_post, mock
     response = Mock()
     response.status_code = 403
     response.text = '{"error": "Invalid credentials"}'
-    response.json.return_value = {"error": "Invalid credentials"}
     mocked_post.return_value = response
 
     App().run()
@@ -85,7 +84,6 @@ def test_app_register_failed_response(mocked_print, mocked_input, mocked_post, m
     response = Mock()
     response.status_code = 400
     response.text = '{"password": ["This password is too common"]}'
-    response.json.return_value = {"password": ["This password is too common"]}
     mocked_post.return_value = response
 
     App().run()
@@ -149,3 +147,27 @@ def test_app_get_genre(mocked_get):
     app = App()
     genre = app._App__get_genre(1)
     assert isinstance(genre, Genre)
+
+@patch("builtins.input", side_effect=["4", "0"])
+@patch("builtins.print")
+@patch("requests.get")
+@patch("app.App._App__get_genre", side_effect=[Genre("MMO"), Genre("RPG")])
+def test_app_get_genres(mocked_get_genre, mocked_get, mocked_print, mocked_input):
+    response = Mock()
+    response.json.return_value = [
+      {
+        "id": 1,
+        "name": "MMO"
+      },
+      {
+        "id": 2,
+        "name": "RPG"
+      }
+    ]
+
+    mocked_get.return_value = response
+
+    App().run()
+
+    mocked_print.assert_any_call(Genre("MMO"))
+    mocked_print.assert_any_call(Genre("RPG"))
