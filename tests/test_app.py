@@ -4,7 +4,12 @@ from app import App
 from main import main
 from unittest.mock import patch, Mock
 
+from primitives.game_description import GameDescription
+from primitives.game_title import GameTitle
 from primitives.genre import Genre
+from primitives.global_rating import GlobalRating
+from primitives.pegi import Pegi
+from primitives.token import Token
 
 
 @patch("builtins.input", side_effect=["0"])
@@ -199,3 +204,41 @@ def test_app_get_genres(mocked_get_genre, mocked_get, mocked_print, mocked_input
 
     mocked_print.assert_any_call(Genre("MMO"))
     mocked_print.assert_any_call(Genre("RPG"))
+
+
+@patch("builtins.print")
+@patch("requests.get")
+@patch("app.App._App__get_game", side_effect=[(
+        GameTitle("GoodGame"),
+        GameDescription("A fantastic game"),
+        [Genre("MMO"), Genre("RPG")],
+        Pegi(3),
+        "2025-01-01",
+        "No votes yet"
+    )])
+def test_show_games_to_play(mocked_get_game, mocked_get, mocked_print):
+    app = App()
+    app.__token = Token("a" * 40)
+
+    response_user = Mock()
+    response_user.json.return_value = {"id": 1}
+
+    response_games = Mock()
+    response_games.json.return_value = [{"id": 1}]
+
+    mocked_get.side_effect = [
+        response_user,
+        response_games
+    ]
+
+    app._App__show_games_to_play()
+
+    mocked_print.assert_any_call(
+        "1     | "
+        "GoodGame                       | "
+        "A fantastic game                         | "
+        "MMO, RPG             | "
+        "PEGI 3 | "
+        "2025-01-01   | "
+        "No votes yet"
+    )

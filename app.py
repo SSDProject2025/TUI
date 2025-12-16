@@ -175,7 +175,7 @@ class App:
             genres = [self.__get_genre(id) for id in game.get("genres")]
             pegi = str(Pegi(game.get("pegi")))
             release_date = game.get("release_date")
-            global_rating = GlobalRating(game.get("global_rating")) if game.get("global_rating") != "0.0" else "No votes yet"
+            global_rating = GlobalRating(game.get("global_rating")  * 1000) if game.get("global_rating") != "0.0" else "No votes yet"
 
             title_lines = textwrap.wrap(title, 30)
             description_lines = textwrap.wrap(description, 40)
@@ -214,7 +214,7 @@ class App:
                 [self.__get_genre(id) for id in response.json().get("genres")],
                 Pegi(response.json().get("pegi")),
                 response.json().get("release_date"),
-                GlobalRating(response.json().get("global_rating")) if response.json().get("global_rating") != "0.0" else "No vcotes yet")
+                GlobalRating(response.json().get("global_rating") * 1000) if response.json().get("global_rating") != "0.0" else "No vcotes yet")
 
     def __show_games_to_play(self) -> list[int]:
         response = requests.get(
