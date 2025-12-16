@@ -293,3 +293,58 @@ def test_get_game_no_votes(mock_get_genre, mock_requests_get):
     result = app._App__get_game(1)
 
     assert result[5] == "No votes yet"
+
+
+@patch("app.requests.post")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+def test_add_game_to_games_to_play_success(mock_show_games, mock_input, mock_post):
+    mock_show_games.return_value = [10, 20]
+    mock_input.return_value = "2"
+
+    mock_response = Mock()
+    mock_response.status_code = 201
+    mock_post.return_value = mock_response
+
+    app = App()
+    app._App__add_game_to_games_to_play()
+
+    mock_input.assert_called_once()
+
+    args, kwargs = mock_post.call_args
+    assert "/games-to-play/" in args[0]
+    assert kwargs['json'] == {"game": 20}
+    assert "Authorization" in kwargs['headers']
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+def test_add_game_to_games_to_play_cancel(mock_show_games, mock_input, mock_print, mock_post):
+    mock_show_games.return_value = [10, 20, 30]
+
+    mock_input.return_value = "0"
+
+    app = App()
+    app._App__add_game_to_games_to_play()
+
+    mock_print.assert_any_call('Cancelled!')
+
+    mock_post.assert_not_called()
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+def test_add_game_to_games_to_play_invalid_input_retry(mock_show_games, mock_input, mock_print, mock_post):
+    mock_show_games.return_value = [10, 20]
+    mock_input.side_effect = ["5", "1"]
+
+    app = App()
+    app._App__add_game_to_games_to_play()
+
+    assert mock_input.call_count == 2
+
+    args, kwargs = mock_post.call_args
+    assert kwargs['json'] == {"game": 10}
