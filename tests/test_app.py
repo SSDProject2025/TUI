@@ -30,6 +30,25 @@ def test_app_login(mocked_print, mocked_input, mocked_post, mocked_getpass):
 
     mocked_print.assert_any_call("\nLogged in successfully!")
 
+@patch("getpass.getpass", side_effect=["string12"])
+@patch("requests.get")
+@patch("requests.post")
+@patch("builtins.input", side_effect=["1", "admin@gmail.com", "4"])
+@patch("builtins.print")
+def test_app_login_as_admin(mocked_print, mocked_input, mocked_post, mocked_get, mocked_getpass):
+    response = Mock()
+    response.status_code = 200
+    response.json.return_value = {"key": "a" * 40}
+    mocked_post.return_value = response
+
+    response1 = Mock()
+    response1.json.return_value = {"is_superuser": True}
+    mocked_get.return_value = response1
+
+    App().run()
+
+    mocked_print.assert_any_call("\nLogged in as admin successfully!")
+
 
 @patch("getpass.getpass", side_effect=["string12"])
 @patch("requests.post")
@@ -127,7 +146,8 @@ def test_app_show_games(mock_get_genre, mocked_get, mocked_print, mock_input):
             "description": "A fantastic game",
             "genres": [1, 2],
             "pegi": 3,
-            "release_date": "2025-01-01"
+            "release_date": "2025-01-01",
+            "global_rating": "4.5"
         }
     ]
 
@@ -135,7 +155,14 @@ def test_app_show_games(mock_get_genre, mocked_get, mocked_print, mock_input):
 
     App().run()
 
-    mocked_print.assert_any_call("GoodGame                       | A fantastic game                         | MMO, RPG             | PEGI 3 | 2025-01-01  ")
+    mocked_print.assert_any_call(
+        "GoodGame                       | "
+        "A fantastic game                         | "
+        "MMO, RPG             | "
+        "PEGI 3 | "
+        "2025-01-01   | "
+        "4.5    "
+    )
 
 
 @patch("app.requests.get")

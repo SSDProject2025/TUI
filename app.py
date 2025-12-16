@@ -27,6 +27,7 @@ class App:
     __base_url: str = "http://localhost:8000/api/v1"
     __token: Token
     def __init__(self):
+        self.__move_game_from_games_to_play_to_games_played = None
         self.__menu = ((Menu.Builder(Description("Fiordispino App"), auto_select=lambda: None).
                        with_entry(Entry.create("1", "Login", on_selected=lambda: self.__login()))).
                        with_entry(Entry.create("2", "Register", on_selected=lambda: self.__register())).
@@ -54,8 +55,17 @@ class App:
                 if response.status_code != 200 and response.status_code != 201:
                     raise RequestException(response.text)
 
-                print("\nLogged in successfully!")
-                self.__change_tui_for_logged_user(response.json().get("key"))
+                response1 = requests.get(
+                    f"{self.__base_url}/user/me/",
+                    headers={"Authorization": f"Token {response.json().get("key")}"},
+                )
+
+                if response1.json().get("is_superuser"):
+                    print("\nLogged in as admin successfully!")
+                    self.__change_tui_for_logged_admin(response.json().get("key"))
+                else:
+                    print("\nLogged in successfully!")
+                    self.__change_tui_for_logged_user(response.json().get("key"))
                 return
 
             except PasswordException:
@@ -107,15 +117,37 @@ class App:
 
                 print(msg)
 
+    def __change_tui_for_logged_admin(self, token: str) -> None:
+        self.__token = Token(token)
+
+        self.__menu = ((Menu.Builder(Description("Fiordispino App"), auto_select=lambda: None).
+                        with_entry(Entry.create("1", "Show Games", on_selected=lambda: self.__show_games())).
+                        with_entry(Entry.create("2", "Show Genres", on_selected=lambda: self.__show_genres())).
+                        with_entry(Entry.create("3", "Add game", on_selected=lambda: self.__add_game())).
+                        with_entry(Entry.create("4", "Add genre", on_selected=lambda: self.__add_genre()))).
+                        with_entry(Entry.create("5", "Remove game", on_selected=lambda: self.__remove_game())).
+                        with_entry(Entry.create("6", "Remove genre", on_selected=lambda: self.__remove_genre())).
+                        with_entry(Entry.create("7", "Ban user", on_selected=lambda: self.__ban_user())).
+                        with_entry(Entry.create("8", "Logout", on_selected=lambda: None, is_exit=True)).
+                        with_entry(Entry.create("0", "Exit", on_selected=lambda: sys.exit("Goodbye!"), is_exit=True)).
+                        build())
+
+        self.run()
 
     def __change_tui_for_logged_user(self, token: str) -> None:
         self.__token = Token(token)
+
         self.__menu = ((Menu.Builder(Description("Fiordispino App"), auto_select=lambda: None).
                        with_entry(Entry.create("1", "Show Games", on_selected=lambda: self.__show_games())).
                        with_entry(Entry.create("2", "Show Genres", on_selected=lambda: self.__show_genres())).
                        with_entry(Entry.create("3", "Show games to play", on_selected=lambda: self.__show_games_to_play())).
                        with_entry(Entry.create("4", "Show games played", on_selected=lambda: self.__show_games_played()))).
-                       with_entry(Entry.create("5", "Logout", on_selected=lambda: None, is_exit=True)).
+                       with_entry(Entry.create("5", "Add game to games to play", on_selected=lambda: self.__add_game_to_games_to_play())).
+                       with_entry(Entry.create("6", "Add game to games played", on_selected=lambda: self.__add_game_to_games_played())).
+                       with_entry(Entry.create("7", "Remove game from games to play", on_selected=lambda: self.__remove_game_from_games_to_play())).
+                       with_entry(Entry.create("8", "Remove game from games played", on_selected=lambda: self.__remove_game_from_games_played())).
+                       with_entry(Entry.create("9", "Move game from games to play to games played", on_selected= lambda: self.__move_game_from_games_to_play_to_games_played)).
+                       with_entry(Entry.create("10", "Logout", on_selected=lambda: None, is_exit=True)).
                        with_entry(Entry.create("0", "Exit", on_selected=lambda: sys.exit("Goodbye!"), is_exit=True)).
                        build())
 
@@ -129,14 +161,15 @@ class App:
     def __show_games(self) -> None:
         response = requests.get(f"{self.__base_url}/game/")
 
-        print(f"{'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12}")
-        print("-" * 120)
+        print(f"{'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE BY USERS':13}")
+        print("-" * 150)
         for game in response.json():
             title = str(GameTitle(game.get("title")))
             description = str(Description(game.get("description")))
             genres = [self.__get_genre(id) for id in game.get("genres")]
             pegi = str(Pegi(game.get("pegi")))
-            release_date = game.get("release_date", "")
+            release_date = game.get("release_date")
+            global_rating = game.get("global_rating") if game.get("global_rating") != "0.0" else "No votes yet"
 
 
             title_lines = textwrap.wrap(title, 30)
@@ -151,8 +184,9 @@ class App:
                 g = ', '.join(str(g) for g in genres) if i == 0 else ""
                 p = pegi if i == 0 else ""
                 r = release_date if i == 0 else ""
+                g_r = global_rating if i == 0 else ""
 
-                print(f"{t:30} | {d:40} | {g:20} | {p:6} | {r:12}")
+                print(f"{t:30} | {d:40} | {g:20} | {p:6} | {r:12} | {g_r:7}")
         print()
 
     def __show_genres(self) -> None:
@@ -168,6 +202,34 @@ class App:
         pass
 
     def __show_games_played(self):
+        pass
+
+
+    def __add_game(self):
+        pass
+
+    def __add_genre(self):
+        pass
+
+    def __remove_game(self):
+        pass
+
+    def __remove_genre(self):
+        pass
+
+    def __ban_user(self):
+        pass
+
+    def __add_game_to_games_to_play(self):
+        pass
+
+    def __add_game_to_games_played(self):
+        pass
+
+    def __remove_game_from_games_to_play(self):
+        pass
+
+    def __remove_game_from_games_played(self):
         pass
 
     @staticmethod
