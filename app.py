@@ -204,16 +204,20 @@ class App:
 
         return ids
 
-    def __show_genres(self) -> List[int]:
+    def __show_genres(self, with_print=True) -> List[int]:
         genres = []
         response = requests.get(f"{self.__base_url}/genre/")
 
-        print(f"|\t\tGENRES:\t\t\t|")
+        if with_print:
+            print(f"|\t\tGENRES:\t\t\t|")
 
         for index, genre in enumerate(response.json(), start=1):
             genres.append(genre.get("id"))
-            print(f"{index}: {Genre(genre.get("name"))}")
-        print()
+            if with_print:
+                print(f"{index}: {Genre(genre.get("name"))}")
+
+        if with_print:
+            print()
 
         return genres
 
@@ -428,13 +432,62 @@ class App:
             print(response.text)
 
     def __add_genre(self):
-        pass
+        genre_to_add = self.__read("Genre", Genre)
+
+        genres = self.__show_genres(with_print=False)
+
+        for id in genres:
+            if str(self.__get_genre(id)).lower() == str(genre_to_add).lower():
+                print("Genre already added")
+                return
+
+        response = requests.post(
+            f"{self.__base_url}/genre/",
+            json={
+                "name": str(genre_to_add),
+            },
+            headers={"Authorization": f"Token {str(self.__token)}"}
+        )
+
+        print("Genre added successfully!")
 
     def __remove_game(self):
-        pass
+        ids = self.__show_games()
+
+        def builder(value: str) -> int:
+            validate("value", int(value), min_value=0, max_value=len(ids))
+            return int(value)
+
+        index = self.__read('Index (0 to cancel)', builder)
+        if index == 0:
+            print('Cancelled!')
+            return
+
+        response = requests.delete(
+            f"{self.__base_url}/game/{ids[index - 1]}/",
+            headers={"Authorization": f"Token {str(self.__token)}"},
+        )
+
+        print("Game removed successfully!")
 
     def __remove_genre(self):
-        pass
+        ids = self.__show_genres()
+
+        def builder(value: str) -> int:
+            validate("value", int(value), min_value=0, max_value=len(ids))
+            return int(value)
+
+        index = self.__read('Index (0 to cancel)', builder)
+        if index == 0:
+            print('Cancelled!')
+            return
+
+        response = requests.delete(
+            f"{self.__base_url}/genre/{ids[index - 1]}/",
+            headers={"Authorization": f"Token {str(self.__token)}"},
+        )
+
+        print("Genre removed successfully!")
 
     def __ban_user(self):
         pass
