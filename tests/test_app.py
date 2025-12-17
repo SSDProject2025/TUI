@@ -1,6 +1,8 @@
 import pytest
+from valid8 import ValidationError
 
 from app import App
+from exceptions.primitives.game_title_exception import GameTitleException
 from main import main
 from unittest.mock import patch, Mock
 
@@ -651,3 +653,400 @@ def test_move_game_from_games_to_play_to_games_played_game_cancelled(mocked_show
     app._App__move_game_from_games_to_play_to_games_played()
 
     mocked_print.assert_any_call("Cancelled!")
+
+
+@patch("app.requests.get")
+@patch("builtins.print")
+@patch("app.App._App__get_genre")
+def test_show_games_played(mocked_get_genre, mocked_print, mocked_get):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    response_mock = Mock()
+    response_mock.json.return_value = [
+        {
+            "id": 500,
+            "rating": 5,
+            "game": {
+                "id": 1,
+                "title": "Played Masterpiece",
+                "description": "A game I have finished",
+                "genres": [1],
+                "pegi": 18,
+                "release_date": "2024-05-20"
+            }
+        }
+    ]
+    mocked_get.return_value = response_mock
+
+    mocked_get_genre.return_value = Genre("RPG")
+
+    ids_global, ids_played = app._App__show_games_played()
+
+    assert ids_global == [1]
+    assert ids_played == [500]
+
+    printed_output = "".join([str(call.args[0]) if call.args else "\n" for call in mocked_print.call_args_list])
+
+    assert "Played Masterpiece" in printed_output
+    assert "RPG" in printed_output
+    assert "5" in printed_output
+
+
+@patch("builtins.input")
+@patch("builtins.print")
+@patch("app.App._App__show_genres")
+@patch("app.App._App__get_genre")
+def test_add_genre_already_exists(mock_get_genre, mock_show_genres, mock_print, mock_input):
+    app = App()
+    mock_input.return_value = "RPG"
+    mock_show_genres.return_value = [1, 2]
+
+    mock_get_genre.side_effect = [Genre("Action"), Genre("RPG")]
+
+    app._App__add_genre()
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Genre already added" in printed_messages
+
+
+@patch("app.requests.post")
+@patch("builtins.input")
+@patch("builtins.print")
+@patch("app.App._App__show_genres")
+@patch("app.App._App__get_genre")
+def test_add_genre_success(mock_get_genre, mock_show_genres, mock_print, mock_input, mock_post):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    mock_input.return_value = "Strategy"
+
+    mock_show_genres.return_value = [1]
+    mock_get_genre.return_value = Genre("Racing")
+
+    mock_post.return_value = Mock(status_code=201)
+
+    app._App__add_genre()
+
+    args, kwargs = mock_post.call_args
+    assert kwargs['json']['name'] == "Strategy"
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Genre added successfully!" in printed_messages
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+@patch("app.App._App__show_games_to_play")
+def test_add_game_to_games_to_play_already_in_list(mock_show_to_play, mock_show_games, mock_input, mock_print,
+                                                   mock_post):
+    app = App()
+    mock_show_games.return_value = [10, 20]
+
+    mock_show_to_play.return_value = ([20], [1])
+    mock_input.return_value = "2"
+
+    app._App__add_game_to_games_to_play()
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Game already in list" in printed_messages
+    mock_post.assert_not_called()
+
+
+@patch("getpass.getpass")
+@patch("builtins.print")
+def test_read_password_error(mock_print, mock_getpass):
+    mock_builder = Mock()
+    mock_builder.side_effect = [ValueError("invalid password"), "valid_password123"]
+
+    mock_getpass.side_effect = ["input1", "input2"]
+
+    result = App._App__read_password("Password", mock_builder)
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "invalid password" in printed_messages
+
+    assert result == "valid_password123"
+
+
+@patch("builtins.input")
+@patch("builtins.print")
+def test_read_custom_exception(mock_print, mock_input):
+    mock_builder = Mock()
+    custom_error = GameTitleException()
+    custom_error.help_message = "Invalid title" # first attempt fails
+
+    mock_builder.side_effect = [custom_error, "valid title"] # first attempt ok -> exit loop
+
+    mock_input.side_effect = ["invalid", "valid"]
+
+    result = App._App__read("insert title", mock_builder)
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+
+    assert "Invalid title" in printed_messages
+
+    assert result == "valid title"
+
+
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+def test_remove_game_success(mock_show_games, mock_input, mock_print, mock_delete):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    # 1. Mock available games (IDs 10, 20, 30)
+    mock_show_games.return_value = [10, 20, 30]
+
+    # 2. User selects index "2" (corresponds to game ID 20)
+    mock_input.return_value = "2"
+
+    # 3. Mock server response for DELETE
+    mock_delete.return_value = Mock(status_code=204)
+
+    # Execution
+    app._App__remove_game()
+
+    # Verify DELETE call was made to the correct URL with correct ID
+    args, kwargs = mock_delete.call_args
+    assert "/game/20/" in args[0]
+
+    # Verify success message
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Game removed successfully!" in printed_messages
+
+
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+def test_remove_game_cancel(mock_show_games, mock_input, mock_print, mock_delete):
+    app = App()
+    mock_show_games.return_value = [10, 20]
+    mock_input.return_value = "0"
+
+    app._App__remove_game()
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Cancelled!" in printed_messages
+
+    mock_delete.assert_not_called()
+
+
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+def test_remove_game_cancel(mock_show_games, mock_input, mock_print, mock_delete):
+    app = App()
+
+    # 1. Mock available games
+    mock_show_games.return_value = [10, 20]
+
+    # 2. User enters "0" to cancel
+    mock_input.return_value = "0"
+
+    app._App__remove_game()
+
+    # Verify cancellation message
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Cancelled!" in printed_messages
+
+    mock_delete.assert_not_called()
+
+
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_genres")
+def test_remove_genre_success(mock_show_genres, mock_input, mock_print, mock_delete):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    # 1. Mock existing genre IDs (e.g., ID 5 for Action, ID 9 for Horror)
+    mock_show_genres.return_value = [5, 9]
+
+    # 2. User selects index "2" (corresponds to genre ID 9)
+    mock_input.return_value = "2"
+
+    # 3. Mock server response for successful deletion
+    mock_delete.return_value = Mock(status_code=204)
+
+    app._App__remove_genre()
+
+    # Verify DELETE request was sent to the correct endpoint with genre ID 9
+    args, kwargs = mock_delete.call_args
+    assert "/genre/9/" in args[0]
+    assert kwargs['headers']['Authorization'] == f"Token {str(app._App__token)}"
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Genre removed successfully!" in printed_messages
+
+
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_genres")
+def test_remove_genre_cancel(mock_show_genres, mock_input, mock_print, mock_delete):
+    app = App()
+
+    # 1. Mock existing genre IDs
+    mock_show_genres.return_value = [5, 9]
+
+    # 2. User enters "0" to abort the operation
+    mock_input.return_value = "0"
+
+    app._App__remove_genre()
+
+    # Verify the "Cancelled!" message was printed
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Cancelled!" in printed_messages
+
+    mock_delete.assert_not_called()
+
+
+@patch("app.requests.get")
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+def test_ban_user_success(mock_input, mock_print, mock_delete, mock_get):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    # 1. Mock the list of users returned by the server
+    # We include a long email to trigger the textwrap logic in the table
+    mock_get.return_value = Mock(status_code=200)
+    mock_get.return_value.json.return_value = [
+        {
+            "id": 101,
+            "username": "nameuser",
+            "email": "nameuser.very.long.email.address@gmail.com"
+        },
+        {
+            "id": 102,
+            "username": "admin",
+            "email": "admin@gmail.com"
+        }
+    ]
+
+    # 2. User selects index "1" to ban the first user (ID 101)
+    mock_input.return_value = "1"
+
+    # 3. Mock the delete response
+    mock_delete.return_value = Mock(status_code=204)
+
+    app._App__ban_user()
+
+    # Verify the DELETE call targets the correct user ID
+    args, _ = mock_delete.call_args
+    assert "/user/101/" in args[0]
+
+    # Verify success message
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "User banned successfully!" in printed_output
+
+
+@patch("app.requests.get")
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+def test_ban_user_cancel(mock_input, mock_print, mock_delete, mock_get):
+    app = App()
+
+    # 1. Mock the user list
+    mock_get.return_value = Mock(status_code=200)
+    mock_get.return_value.json.return_value = [{"id": 101, "username": "test", "email": "test@gmail.com"}]
+
+    # 2. User enters "0" to cancel the operation
+    mock_input.return_value = "0"
+
+    app._App__ban_user()
+
+    # Verify "Cancelled!" message
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "Cancelled!" in printed_output
+
+    mock_delete.assert_not_called()
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+@patch("app.App._App__show_games_played")
+def test_add_game_to_games_played_success(mock_show_played, mock_show_games, mock_input, mock_print, mock_post):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    # 1. Setup available games (ID 10, 20) and empty played list
+    mock_show_games.return_value = [10, 20]
+    mock_show_played.return_value = ([], [])  # (ids_global, ids_played)
+
+    # 2. Mock user input: "2" (for game ID 20) and then "5" (for the Vote)
+    mock_input.side_effect = ["2", "5"]
+
+    # 3. Mock successful POST response
+    mock_post.return_value = Mock(status_code=201)
+
+    # Execution
+    app._App__add_game_to_games_played()
+
+    # Verify POST request contains both the game ID and the rating
+    args, kwargs = mock_post.call_args
+    assert kwargs['json']['game'] == 20
+    assert kwargs['json']['rating'] == 5
+
+    # Verify success message
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "Game added to games played!" in printed_output
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+@patch("app.App._App__show_games_played")
+def test_add_game_to_games_played_already_exists(mock_show_played, mock_show_games, mock_input, mock_print, mock_post):
+    app = App()
+
+    # 1. Setup games: ID 10 is already in the played list
+    mock_show_games.return_value = [10, 20]
+    mock_show_played.return_value = ([10], [500])  # ID 10 is already played
+
+    # 2. User selects index "1" (ID 10)
+    mock_input.return_value = "1"
+
+    # Execution
+    app._App__add_game_to_games_played()
+
+    # Verify duplicate message and ensure no POST was made
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "Game already in list" in printed_output
+    mock_post.assert_not_called()
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+@patch("app.App._App__show_games_played")
+def test_add_game_to_games_played_cancel(mock_show_played, mock_show_games, mock_input, mock_print, mock_post):
+    app = App()
+
+    # 1. Setup games
+    mock_show_games.return_value = [10, 20]
+    mock_show_played.return_value = ([], [])
+
+    # 2. User enters "0" to cancel
+    mock_input.return_value = "0"
+
+    # Execution
+    app._App__add_game_to_games_played()
+
+    # Verify cancellation
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "Cancelled!" in printed_output
+    mock_post.assert_not_called()
