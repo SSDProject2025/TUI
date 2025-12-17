@@ -428,3 +428,86 @@ def test_show_games_rating_parsing(mocked_get_genre, mocked_print, mocked_get):
 
     assert "4.50" in printed_output or "4.5" in printed_output
     assert "Rated Game" in printed_output
+
+@patch("builtins.open")
+@patch("app.requests.post")
+@patch("builtins.input", side_effect = ["A fantastic game", "GoodGame", "1", "1", "16", "2025", "1", "10"])
+@patch("builtins.print")
+@patch("app.App._App__show_genres", side_effect=[[1]])
+def test_app_add_game_successful(mock_show_genres, mock_print, mock_input, mock_post, mock_open):
+
+    fake_file = Mock()  # A fake file must be inserted in the post
+    mock_open.return_value.__enter__.return_value = fake_file
+
+    response = Mock()
+    response.status_code = 201
+    mock_post.return_value = response
+
+    app = App()
+    app._App__add_game()
+
+    mock_print.assert_any_call("Game added successfully!")
+
+
+@patch("builtins.open")
+@patch("app.requests.post")
+@patch("builtins.input", side_effect = ["A fantastic game", "GoodGame", "1", "1", "16", "2025", "1", "10"])
+@patch("builtins.print")
+@patch("app.App._App__show_genres", side_effect=[[1]])
+def test_app_add_game_failed_on_wrong_response_code(mocked_show_genres, mocked_print, mocked_input, mocked_post, mocked_open):
+    fake_file = Mock() # A fake file must be inserted in the post
+    mocked_open.return_value.__enter__.return_value = fake_file
+
+    response = Mock()
+    response.status_code = 403
+    mocked_post.return_value = response
+
+    app = App()
+    app._App__add_game()
+
+    mocked_print.assert_any_call(f"Error: {response.status_code}")
+
+@patch("builtins.open")
+@patch("builtins.input", side_effect=["A fantastic game", "GoodGame", "2", "1", "1", "2", "16", "2025", "1", "10"])
+@patch("builtins.print")
+@patch("app.App._App__show_genres", return_value=[1, 2])
+@patch("app.requests.post")
+def test_app_add_game_failed_on_genre_already_selected(mocked_post, mocked_show_genres, mocked_print, mocked_input, mocked_open):
+    fake_file = Mock()
+    mocked_open.return_value.__enter__.return_value = fake_file
+
+    response = Mock()
+    response.status_code = 201
+    mocked_post.return_value = response
+
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    app._App__add_game()
+
+    mocked_print.assert_any_call(
+        "Genre already selected. Please choose a different one."
+    )
+
+
+@patch("builtins.open")
+@patch("builtins.input", side_effect=["A fantastic game", "GoodGame", "1", "5", "1", "16", "2025", "1", "10"])
+@patch("builtins.print")
+@patch("app.App._App__show_genres", return_value=[1])
+@patch("app.requests.post")
+def test_app_add_game_invalid_genre_index(mocked_post, mocked_show_genres, mocked_print, mocked_input, mocked_open):
+    fake_file = Mock()
+    mocked_open.return_value.__enter__.return_value = fake_file
+
+    response = Mock()
+    response.status_code = 201
+    mocked_post.return_value = response
+
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    app._App__add_game()
+
+    mocked_print.assert_any_call(
+        "Invalid index. Please try again"
+    )
