@@ -10,7 +10,6 @@ from requests import RequestException
 from valid8 import ValidationError, validate
 
 from exceptions.primitives.password_exception import PasswordException
-from exceptions.primitives.pegi_ranking_exception import PegiRankingException
 from exceptions.primitives.username_exception import UsernameException
 from functionalities.description import Description
 from functionalities.entry import Entry
@@ -490,7 +489,50 @@ class App:
         print("Genre removed successfully!")
 
     def __ban_user(self):
-        pass
+        response = requests.get(
+            f"{self.__base_url}/user/",
+            headers={"Authorization": f"Token {str(self.__token)}"}
+        )
+
+        print(f"{'USER':30} | {'EMAIL':50} |")
+        print("-" * 100)
+
+        users_id = []
+
+        for index, user in enumerate(response.json(), start=1):
+            users_id.append(user.get("id"))
+            username = Username(user.get('username'))
+            email = Email(user.get('email'))
+
+            username_str = str(username)
+            email_str = str(email)
+
+            username_lines = textwrap.wrap(username_str, 30)
+            email_lines = textwrap.wrap(email_str, 50)
+            num_lines = max(len(username_lines), len(email_lines))
+
+            for i in range(num_lines):
+                print(
+                    f"{str(index) if i == 0 else '':5} | "
+                    f"{username_lines[i] if i < len(username_lines) else '':30} | "
+                    f"{email_lines[i] if i < len(email_lines) else ''}"
+                )
+
+        def builder(value: str) -> int:
+            validate("value", int(value), min_value=0, max_value=len(users_id))
+            return int(value)
+
+        index = self.__read('Index (0 to cancel)', builder)
+        if index == 0:
+            print('Cancelled!')
+            return
+
+        response = requests.delete(
+            f"{self.__base_url}/user/{users_id[index - 1]}/",
+            headers={"Authorization": f"Token {str(self.__token)}"},
+        )
+
+        print("User banned successfully!")
 
     def __add_game_to_games_to_play(self) -> None:
         ids = self.__show_games()
