@@ -218,15 +218,7 @@ def test_app_get_genres(mocked_get_genre, mocked_get, mocked_print, mocked_input
 
 @patch("builtins.print")
 @patch("requests.get")
-@patch("app.App._App__get_game", side_effect=[(
-        GameTitle("GoodGame"),
-        GameDescription("A fantastic game"),
-        [Genre("MMO"), Genre("RPG")],
-        Pegi(3),
-        "2025-01-01",
-        GlobalRating.create(4, 50)
-    )])
-def test_show_games_to_play(mocked_get_game, mocked_get, mocked_print):
+def test_show_games_to_play(mocked_get, mocked_print):
     app = App()
     app._App__token = Token("a" * 40)
 
@@ -1071,3 +1063,146 @@ def test_app_show_games_to_play_with_vote(mocked_create, mocked_get, mocked_prin
         "2025-05-01   | "
         "7.50"
     )
+
+@patch("builtins.input", side_effect=["testuser"])
+@patch("builtins.print")
+@patch("requests.get")
+@patch("app.GlobalRating.create", side_effect=["6.20"])
+def test_show_games_to_play_given_user(mocked_create, mocked_get, mocked_print, mocked_input):
+    response = Mock()
+    response.json.return_value = [
+        {
+            "id": 50,
+            "game": {
+                "id": 1,
+                "title": "UserGame",
+                "description": "Game for user",
+                "genres": [{"name": "MMO"}, {"name": "RPG"}],
+                "pegi": 16,
+                "release_date": "2025-03-01",
+                "global_rating": "6.2"
+            }
+        }
+    ]
+
+    mocked_get.return_value = response
+
+    app = App()
+    app._App__show_games_to_play_given_user()
+
+    mocked_print.assert_any_call("GAMES TO PLAY BY testuser")
+    mocked_print.assert_any_call(
+        f"{'1':<5} | "
+        f"{'UserGame':<30} | "
+        f"{'Game for user':<40} | "
+        f"{'MMO, RPG':<20} | "
+        f"{'PEGI 16':<6} | "
+        f"{'2025-03-01':<12} | "
+        f"6.20"
+    )
+
+@patch("builtins.input", side_effect=["testuser"])
+@patch("builtins.print")
+@patch("requests.get")
+@patch("app.GlobalRating.create", side_effect=["6.20"])
+def test_show_games_to_play_given_user_no_votes(mocked_create, mocked_get, mocked_print, mocked_input):
+    response = Mock()
+    response.json.return_value = [
+        {
+            "id": 50,
+            "game": {
+                "id": 1,
+                "title": "UserGame",
+                "description": "Game for user",
+                "genres": [{"name": "MMO"}, {"name": "RPG"}],
+                "pegi": 16,
+                "release_date": "2025-03-01",
+                "global_rating": "0.0"
+            }
+        }
+    ]
+
+    mocked_get.return_value = response
+
+    app = App()
+    app._App__show_games_to_play_given_user()
+
+    mocked_print.assert_any_call(
+        f"{'1':<5} | "
+        f"{'UserGame':<30} | "
+        f"{'Game for user':<40} | "
+        f"{'MMO, RPG':<20} | "
+        f"{'PEGI 16':<6} | "
+        f"{'2025-03-01':<12} | "
+        "No votes yet"
+    )
+
+@patch("builtins.input", side_effect=["testuser"])
+@patch("builtins.print")
+@patch("requests.get")
+@patch("app.GlobalRating.create", side_effect=["6.20"])
+def test_show_games_to_play_given_user_no_games_for_user(mocked_create, mocked_get, mocked_print, mocked_input):
+    response = Mock()
+    response.json.return_value = []
+
+    mocked_get.return_value = response
+
+    app = App()
+    app._App__show_games_to_play_given_user()
+
+    mocked_print.assert_any_call("No games for user testuser")
+
+
+@patch("builtins.input", side_effect=["testuser"])
+@patch("builtins.print")
+@patch("requests.get")
+def test_show_games_played_given_user(mocked_get, mocked_print, mocked_input):
+    response = Mock()
+    response.json.return_value = [
+        {
+            "id": 50,
+            "game": {
+                "id": 1,
+                "title": "UserGame",
+                "description": "Game for user",
+                "genres": [{"name": "MMO"}, {"name": "RPG"}],
+                "pegi": 16,
+                "release_date": "2025-03-01",
+            },
+            "rating": 6
+        }
+    ]
+
+    mocked_get.return_value = response
+
+    app = App()
+    app._App__token = Token("a" * 40)
+    app._App__show_games_played_given_user()
+
+    # Controlla intestazione
+    mocked_print.assert_any_call("GAMES PLAYED BY testuser")
+
+    # Controlla riga del gioco (spazi coerenti con il codice)
+    mocked_print.assert_any_call(
+        f"{'1':<5} | "
+        f"{'UserGame':<30} | "
+        f"{'Game for user':<40} | "
+        f"{'MMO, RPG':<20} | "
+        f"{'PEGI 16':<6} | "
+        f"{'2025-03-01':<12} | "
+        f"6"
+    )
+
+
+@patch("builtins.input", side_effect=["testuser"])
+@patch("builtins.print")
+@patch("requests.get")
+def test_show_games_played_given_user_no_games_for_user(mocked_get, mocked_print, mocked_input):
+    response = Mock()
+    response.json.return_value = []
+    mocked_get.return_value = response
+
+    app = App()
+    app._App__show_games_played_given_user()
+
+    mocked_print.assert_any_call("No games for user testuser")
