@@ -428,3 +428,41 @@ def test_show_games_rating_parsing(mocked_get_genre, mocked_print, mocked_get):
 
     assert "4.50" in printed_output or "4.5" in printed_output
     assert "Rated Game" in printed_output
+
+
+@patch("app.requests.get")
+@patch("builtins.print")
+@patch("app.App._App__get_genre")
+def test_show_games_played(mocked_get_genre, mocked_print, mocked_get):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    response_mock = Mock()
+    response_mock.json.return_value = [
+        {
+            "id": 500,
+            "rating": 5,
+            "game": {
+                "id": 1,
+                "title": "Played Masterpiece",
+                "description": "A game I have finished",
+                "genres": [1],
+                "pegi": 18,
+                "release_date": "2024-05-20"
+            }
+        }
+    ]
+    mocked_get.return_value = response_mock
+
+    mocked_get_genre.return_value = Genre("RPG")
+
+    ids_global, ids_played = app._App__show_games_played()
+
+    assert ids_global == [1]
+    assert ids_played == [500]
+
+    printed_output = "".join([str(call.args[0]) if call.args else "\n" for call in mocked_print.call_args_list])
+
+    assert "Played Masterpiece" in printed_output
+    assert "RPG" in printed_output
+    assert "5" in printed_output
