@@ -470,7 +470,7 @@ def test_app_add_game_failed_on_wrong_response_code(mocked_show_genres, mocked_p
 @patch("builtins.open")
 @patch("builtins.input", side_effect=["A fantastic game", "GoodGame", "2", "1", "1", "2", "16", "2025", "1", "10"])
 @patch("builtins.print")
-@patch("app.App._App__show_genres", return_value=[1, 2])
+@patch("app.App._App__show_genres", side_effect=[[1, 2]])
 @patch("app.requests.post")
 def test_app_add_game_failed_on_genre_already_selected(mocked_post, mocked_show_genres, mocked_print, mocked_input, mocked_open):
     fake_file = Mock()
@@ -485,15 +485,13 @@ def test_app_add_game_failed_on_genre_already_selected(mocked_post, mocked_show_
 
     app._App__add_game()
 
-    mocked_print.assert_any_call(
-        "Genre already selected. Please choose a different one."
-    )
+    mocked_print.assert_any_call("Genre already selected. Please choose a different one.")
 
 
 @patch("builtins.open")
 @patch("builtins.input", side_effect=["A fantastic game", "GoodGame", "1", "5", "1", "16", "2025", "1", "10"])
 @patch("builtins.print")
-@patch("app.App._App__show_genres", return_value=[1])
+@patch("app.App._App__show_genres", side_effect=[[1]])
 @patch("app.requests.post")
 def test_app_add_game_invalid_genre_index(mocked_post, mocked_show_genres, mocked_print, mocked_input, mocked_open):
     fake_file = Mock()
@@ -508,9 +506,7 @@ def test_app_add_game_invalid_genre_index(mocked_post, mocked_show_genres, mocke
 
     app._App__add_game()
 
-    mocked_print.assert_any_call(
-        "Invalid index. Please try again"
-    )
+    mocked_print.assert_any_call("Invalid index. Please try again")
 
 
 @patch("builtins.input")
@@ -553,3 +549,36 @@ def test_add_genre_success(mock_get_genre, mock_show_genres, mock_print, mock_in
 
     printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
     assert "Genre added successfully!" in printed_messages
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["1"])
+@patch("requests.delete")
+@patch("app.App._App__show_games_to_play", side_effect=[([10], [1])])
+def test_remove_game_from_games_to_play_success(mocked_show_games_to_play, mocked_delete, mocked_input, mocked_print,):
+
+    response = Mock()
+    response.status_code = 204
+    mocked_delete.return_value = response
+
+    app = App()
+    app._App__remove_game_from_games_to_play()
+
+
+    mocked_print.assert_any_call("Game removed from games to play!")
+
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["0"])
+@patch("requests.delete")
+@patch("app.App._App__show_games_to_play", side_effect=[([10], [1])])
+def test_remove_game_from_games_to_play_cancelled(mocked_show_games_to_play, mocked_delete, mocked_input, mocked_print,):
+
+    response = Mock()
+    response.status_code = 204
+    mocked_delete.return_value = response
+
+    app = App()
+    app._App__remove_game_from_games_to_play()
+
+
+    mocked_print.assert_any_call("Cancelled!")
