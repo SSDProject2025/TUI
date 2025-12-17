@@ -747,3 +747,83 @@ def test_ban_user_cancel(mock_input, mock_print, mock_delete, mock_get):
     assert "Cancelled!" in printed_output
 
     mock_delete.assert_not_called()
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+@patch("app.App._App__show_games_played")
+def test_add_game_to_games_played_success(mock_show_played, mock_show_games, mock_input, mock_print, mock_post):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    # 1. Setup available games (ID 10, 20) and empty played list
+    mock_show_games.return_value = [10, 20]
+    mock_show_played.return_value = ([], [])  # (ids_global, ids_played)
+
+    # 2. Mock user input: "2" (for game ID 20) and then "5" (for the Vote)
+    mock_input.side_effect = ["2", "5"]
+
+    # 3. Mock successful POST response
+    mock_post.return_value = Mock(status_code=201)
+
+    # Execution
+    app._App__add_game_to_games_played()
+
+    # Verify POST request contains both the game ID and the rating
+    args, kwargs = mock_post.call_args
+    assert kwargs['json']['game'] == 20
+    assert kwargs['json']['rating'] == 5
+
+    # Verify success message
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "Game added to games played!" in printed_output
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+@patch("app.App._App__show_games_played")
+def test_add_game_to_games_played_already_exists(mock_show_played, mock_show_games, mock_input, mock_print, mock_post):
+    app = App()
+
+    # 1. Setup games: ID 10 is already in the played list
+    mock_show_games.return_value = [10, 20]
+    mock_show_played.return_value = ([10], [500])  # ID 10 is already played
+
+    # 2. User selects index "1" (ID 10)
+    mock_input.return_value = "1"
+
+    # Execution
+    app._App__add_game_to_games_played()
+
+    # Verify duplicate message and ensure no POST was made
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "Game already in list" in printed_output
+    mock_post.assert_not_called()
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+@patch("app.App._App__show_games_played")
+def test_add_game_to_games_played_cancel(mock_show_played, mock_show_games, mock_input, mock_print, mock_post):
+    app = App()
+
+    # 1. Setup games
+    mock_show_games.return_value = [10, 20]
+    mock_show_played.return_value = ([], [])
+
+    # 2. User enters "0" to cancel
+    mock_input.return_value = "0"
+
+    # Execution
+    app._App__add_game_to_games_played()
+
+    # Verify cancellation
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "Cancelled!" in printed_output
+    mock_post.assert_not_called()
