@@ -431,6 +431,229 @@ def test_show_games_rating_parsing(mocked_get_genre, mocked_print, mocked_get):
     assert "4.50" in printed_output or "4.5" in printed_output
     assert "Rated Game" in printed_output
 
+@patch("builtins.open")
+@patch("app.requests.post")
+@patch("builtins.input", side_effect = ["A fantastic game", "GoodGame", "1", "1", "16", "2025", "1", "10"])
+@patch("builtins.print")
+@patch("app.App._App__show_genres", side_effect=[[1]])
+def test_app_add_game_successful(mock_show_genres, mock_print, mock_input, mock_post, mock_open):
+
+    fake_file = Mock()  # A fake file must be inserted in the post
+    mock_open.return_value.__enter__.return_value = fake_file
+
+    response = Mock()
+    response.status_code = 201
+    mock_post.return_value = response
+
+    app = App()
+    app._App__add_game()
+
+    mock_print.assert_any_call("Game added successfully!")
+
+
+@patch("builtins.open")
+@patch("app.requests.post")
+@patch("builtins.input", side_effect = ["A fantastic game", "GoodGame", "1", "1", "16", "2025", "1", "10"])
+@patch("builtins.print")
+@patch("app.App._App__show_genres", side_effect=[[1]])
+def test_app_add_game_failed_on_wrong_response_code(mocked_show_genres, mocked_print, mocked_input, mocked_post, mocked_open):
+    fake_file = Mock() # A fake file must be inserted in the post
+    mocked_open.return_value.__enter__.return_value = fake_file
+
+    response = Mock()
+    response.status_code = 403
+    mocked_post.return_value = response
+
+    app = App()
+    app._App__add_game()
+
+    mocked_print.assert_any_call(f"Error: {response.status_code}")
+
+@patch("builtins.open")
+@patch("builtins.input", side_effect=["A fantastic game", "GoodGame", "2", "1", "1", "2", "16", "2025", "1", "10"])
+@patch("builtins.print")
+@patch("app.App._App__show_genres", side_effect=[[1, 2]])
+@patch("app.requests.post")
+def test_app_add_game_failed_on_genre_already_selected(mocked_post, mocked_show_genres, mocked_print, mocked_input, mocked_open):
+    fake_file = Mock()
+    mocked_open.return_value.__enter__.return_value = fake_file
+
+    response = Mock()
+    response.status_code = 201
+    mocked_post.return_value = response
+
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    app._App__add_game()
+
+    mocked_print.assert_any_call("Genre already selected. Please choose a different one.")
+
+
+@patch("builtins.open")
+@patch("builtins.input", side_effect=["A fantastic game", "GoodGame", "1", "5", "1", "16", "2025", "1", "10"])
+@patch("builtins.print")
+@patch("app.App._App__show_genres", side_effect=[[1]])
+@patch("app.requests.post")
+def test_app_add_game_invalid_genre_index(mocked_post, mocked_show_genres, mocked_print, mocked_input, mocked_open):
+    fake_file = Mock()
+    mocked_open.return_value.__enter__.return_value = fake_file
+
+    response = Mock()
+    response.status_code = 201
+    mocked_post.return_value = response
+
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    app._App__add_game()
+
+    mocked_print.assert_any_call("Invalid index. Please try again")
+
+
+@patch("builtins.input")
+@patch("builtins.print")
+@patch("app.App._App__show_genres")
+@patch("app.App._App__get_genre")
+def test_add_genre_already_exists(mock_get_genre, mock_show_genres, mock_print, mock_input):
+    app = App()
+    mock_input.return_value = "RPG"
+    mock_show_genres.return_value = [1, 2]
+
+    mock_get_genre.side_effect = [Genre("Action"), Genre("RPG")]
+
+    app._App__add_genre()
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Genre already added" in printed_messages
+
+
+@patch("app.requests.post")
+@patch("builtins.input")
+@patch("builtins.print")
+@patch("app.App._App__show_genres")
+@patch("app.App._App__get_genre")
+def test_add_genre_success(mock_get_genre, mock_show_genres, mock_print, mock_input, mock_post):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    mock_input.return_value = "Strategy"
+
+    mock_show_genres.return_value = [1]
+    mock_get_genre.return_value = Genre("Racing")
+
+    mock_post.return_value = Mock(status_code=201)
+
+    app._App__add_genre()
+
+    args, kwargs = mock_post.call_args
+    assert kwargs['json']['name'] == "Strategy"
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Genre added successfully!" in printed_messages
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["1"])
+@patch("requests.delete")
+@patch("app.App._App__show_games_to_play", side_effect=[([10], [1])])
+def test_remove_game_from_games_to_play_success(mocked_show_games_to_play, mocked_delete, mocked_input, mocked_print):
+
+    response = Mock()
+    response.status_code = 204
+    mocked_delete.return_value = response
+
+    app = App()
+    app._App__remove_game_from_games_to_play()
+
+
+    mocked_print.assert_any_call("Game removed from games to play!")
+
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["0"])
+@patch("requests.delete")
+@patch("app.App._App__show_games_to_play", side_effect=[([10], [1])])
+def test_remove_game_from_games_to_play_cancelled(mocked_show_games_to_play, mocked_delete, mocked_input, mocked_print):
+
+    response = Mock()
+    response.status_code = 204
+    mocked_delete.return_value = response
+
+    app = App()
+    app._App__remove_game_from_games_to_play()
+
+
+    mocked_print.assert_any_call("Cancelled!")
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["1"])
+@patch("requests.delete")
+@patch("app.App._App__show_games_played", side_effect=[([10], [1])])
+def test_remove_game_from_games_played_success(mocked_show_games_played, mocked_delete, mocked_input, mocked_print):
+    response = Mock()
+    response.status_code = 204
+    mocked_delete.return_value = response
+
+    app = App()
+    app._App__remove_game_from_games_played()
+
+    mocked_print.assert_any_call("Game removed from games played")
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["0"])
+@patch("requests.delete")
+@patch("app.App._App__show_games_played", side_effect=[([10], [1])])
+def test_remove_game_from_games_played_cancelled(mocked_show_games_played, mocked_delete, mocked_input, mocked_print):
+    response = Mock()
+    response.status_code = 204
+    mocked_delete.return_value = response
+
+    app = App()
+    app._App__remove_game_from_games_played()
+
+    mocked_print.assert_any_call("Cancelled!")
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["1"])
+@patch("requests.post")
+@patch("app.App._App__show_games", return_value=[1, 2, 3])
+@patch("app.App._App__show_games_to_play", return_value=([1], [1]))
+def test_add_game_to_games_to_play_already_in_list(mocked_show_games_to_play, mocked_show_games, mocked_post, mocked_input, mocked_print):
+    app = App()
+
+    app._App__add_game_to_games_to_play()
+
+    mocked_print.assert_any_call("Game already in list")
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["1", "5"])
+@patch("requests.delete")
+@patch("requests.post")
+@patch("app.App._App__show_games_to_play", return_value=([10], [1]))
+def test_move_game_from_games_to_play_to_games_played_success(mocked_show_games_to_play, mocked_post, mocked_delete, mocked_input, mocked_print):
+    delete_response = Mock()
+    delete_response.status_code = 204
+    mocked_delete.return_value = delete_response
+
+    post_response = Mock()
+    post_response.status_code = 201
+    mocked_post.return_value = post_response
+
+    app = App()
+    app._App__move_game_from_games_to_play_to_games_played()
+
+    mocked_print.assert_any_call("Game moved to games played!")
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["0"])
+@patch("app.App._App__show_games_to_play", return_value=([10], [1]))
+def test_move_game_from_games_to_play_to_games_played_game_cancelled(mocked_show_games_to_play, mocked_input, mocked_print):
+    app = App()
+
+    app._App__move_game_from_games_to_play_to_games_played()
+
+    mocked_print.assert_any_call("Cancelled!")
+
 
 @patch("app.requests.get")
 @patch("builtins.print")

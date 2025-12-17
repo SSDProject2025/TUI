@@ -421,7 +421,7 @@ class App:
         }
 
         # Adding a default image otherwise the backend gets angry
-        with open("placeholder_images/useful_formula.png", 'rb') as img_file:
+        with open("placeholder_images/useful_formula.jpg", 'rb') as img_file:
             files = {
                 'box_art': img_file
             }
