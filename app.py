@@ -140,7 +140,9 @@ class App:
                         with_entry(Entry.create("5", "Remove game", on_selected=lambda: self.__remove_game())).
                         with_entry(Entry.create("6", "Remove genre", on_selected=lambda: self.__remove_genre())).
                         with_entry(Entry.create("7", "Ban user", on_selected=lambda: self.__ban_user())).
-                        with_entry(Entry.create("8", "Logout", on_selected=lambda: None, is_exit=True)).
+                        with_entry(Entry.create("8", "Show a user games to play list", on_selected=lambda: self.__show_games_to_play_given_user())).
+                        with_entry(Entry.create("9", "Show a user games played list", on_selected=lambda: self.__show_games_played_given_user())).
+                        with_entry(Entry.create("10", "Logout", on_selected=lambda: None, is_exit=True)).
                         with_entry(Entry.create("0", "Exit", on_selected=lambda: sys.exit("Goodbye!"), is_exit=True)).
                         build())
 
@@ -159,7 +161,9 @@ class App:
                        with_entry(Entry.create("7", "Remove game from games to play", on_selected=lambda: self.__remove_game_from_games_to_play())).
                        with_entry(Entry.create("8", "Remove game from games played", on_selected=lambda: self.__remove_game_from_games_played())).
                        with_entry(Entry.create("9", "Move game from games to play to games played", on_selected= lambda: self.__move_game_from_games_to_play_to_games_played())).
-                       with_entry(Entry.create("10", "Logout", on_selected=lambda: None, is_exit=True)).
+                       with_entry(Entry.create("10", "Show a user games to play list", on_selected= lambda: self.__show_games_to_play_given_user())).
+                       with_entry(Entry.create("11", "Show a user games played list", on_selected=lambda: self.__show_games_played_given_user())).
+                       with_entry(Entry.create("12", "Logout", on_selected=lambda: None, is_exit=True)).
                        with_entry(Entry.create("0", "Exit", on_selected=lambda: sys.exit("Goodbye!"), is_exit=True)).
                        build())
 
@@ -178,11 +182,12 @@ class App:
         print(
             f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE BY USERS':13}")
         print("-" * 157)
+        # print(response.json())
         for index, game in enumerate(response.json(), start=1):
             ids.append(game.get("id"))
             title = str(GameTitle(game.get("title")))
             description = str(Description(game.get("description")))
-            genres = [self.__get_genre(id) for id in game.get("genres")]
+            genres = [Genre(genre.get("name")) for genre in game.get("genres")]
             pegi = str(Pegi(game.get("pegi")))
             release_date = game.get("release_date")
 
@@ -270,8 +275,12 @@ class App:
         for index, item in enumerate(response1.json(), start=1):
             ids_global.append(item.get("game").get("id"))
             ids_to_play.append(item.get("id"))
-            game_id = item["game"]["id"]
-            title, description, genres, pegi, release_date, global_rating = self.__get_game(game_id)
+
+            title = str(GameTitle(item.get("game").get("title")))
+            description = str(Description(item.get("game").get("description")))
+            genres = [Genre(genre.get("name")) for genre in item.get("game").get("genres")]
+            pegi = str(Pegi(item.get("game").get("pegi")))
+            release_date = item.get("game").get("release_date")
 
             title_str = str(title)
             description_str = str(description)
@@ -332,7 +341,7 @@ class App:
 
             title = GameTitle(game["title"])
             description = GameDescription(game["description"])
-            genres = [self.__get_genre(g) for g in game["genres"]]
+            genres = [Genre(g["name"]) for g in game["genres"]]
             pegi = Pegi(game["pegi"])
             release_date = game["release_date"]
 
@@ -671,6 +680,67 @@ class App:
         )
 
         print("Game moved to games played!")
+
+    def __show_games_to_play_given_user(self) -> None:
+        username = self.__read('Username', Username)
+
+        response = requests.get(
+            f"{self.__base_url}/games-to-play/owner/{str(username)}/",
+            headers={"Authorization": f"Token {str(self.__token)}"},
+        )
+
+        if(len(response.json()) == 0):
+            print(f"No games for user {str(username)}")
+            return
+
+        print(f"GAMES TO PLAY BY {str(username)}")
+        print(
+            f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE BY USERS':13}"
+        )
+        print("-" * 157)
+
+        for index, item in enumerate(response.json(), start=1):
+            game_id = item["game"]["id"]
+
+            title = str(GameTitle(item.get("game").get("title")))
+            description = str(Description(item.get("game").get("description")))
+            genres = [Genre(genre.get("name")) for genre in item.get("game").get("genres")]
+            pegi = str(Pegi(item.get("game").get("pegi")))
+            release_date = item.get("game").get("release_date")
+
+            title_str = str(title)
+            description_str = str(description)
+            genres_str = ', '.join(str(g) for g in genres)
+            pegi_str = str(pegi)
+
+            # Gestione voto
+            raw_rating = str(item["game"].get("global_rating", "0.0"))
+            if raw_rating == "0.0":
+                vote_display = "No votes yet"
+            else:
+                integer_str, decimal_str = raw_rating.split(".")
+                decimal_str = decimal_str.ljust(2, "0")
+                vote_display = GlobalRating.create(int(integer_str), int(decimal_str))
+
+            title_lines = textwrap.wrap(title_str, 30)
+            description_lines = textwrap.wrap(description_str, 40)
+            num_lines = max(len(title_lines), len(description_lines))
+
+            for i in range(num_lines):
+                print(
+                    f"{str(index) if i == 0 else '':5} | "
+                    f"{title_lines[i] if i < len(title_lines) else '':30} | "
+                    f"{description_lines[i] if i < len(description_lines) else '':40} | "
+                    f"{genres_str if i == 0 else '':20} | "
+                    f"{pegi_str if i == 0 else '':6} | "
+                    f"{release_date if i == 0 else '':12} | "
+                    f"{str(vote_display) if i == 0 else ''}"
+                )
+
+        print()
+
+    def __show_games_played_given_user(self):
+        pass
 
     @staticmethod
     def __read_password(prompt: str, builder: Callable) -> Any:
