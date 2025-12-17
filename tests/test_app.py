@@ -610,3 +610,44 @@ def test_remove_game_from_games_played_cancelled(mocked_show_games_played, mocke
     app._App__remove_game_from_games_played()
 
     mocked_print.assert_any_call("Cancelled!")
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["1"])
+@patch("requests.post")
+@patch("app.App._App__show_games", return_value=[1, 2, 3])
+@patch("app.App._App__show_games_to_play", return_value=([1], [1]))
+def test_add_game_to_games_to_play_already_in_list(mocked_show_games_to_play, mocked_show_games, mocked_post, mocked_input, mocked_print):
+    app = App()
+
+    app._App__add_game_to_games_to_play()
+
+    mocked_print.assert_any_call("Game already in list")
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["1", "5"])
+@patch("requests.delete")
+@patch("requests.post")
+@patch("app.App._App__show_games_to_play", return_value=([10], [1]))
+def test_move_game_from_games_to_play_to_games_played_success(mocked_show_games_to_play, mocked_post, mocked_delete, mocked_input, mocked_print):
+    delete_response = Mock()
+    delete_response.status_code = 204
+    mocked_delete.return_value = delete_response
+
+    post_response = Mock()
+    post_response.status_code = 201
+    mocked_post.return_value = post_response
+
+    app = App()
+    app._App__move_game_from_games_to_play_to_games_played()
+
+    mocked_print.assert_any_call("Game moved to games played!")
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["0"])
+@patch("app.App._App__show_games_to_play", return_value=([10], [1]))
+def test_move_game_from_games_to_play_to_games_played_game_cancelled(mocked_show_games_to_play, mocked_input, mocked_print):
+    app = App()
+
+    app._App__move_game_from_games_to_play_to_games_played()
+
+    mocked_print.assert_any_call("Cancelled!")
