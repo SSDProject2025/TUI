@@ -157,7 +157,7 @@ def test_app_show_games(mock_get_genre, mocked_get, mocked_print, mock_input):
             "id": 1,
             "title": "GoodGame",
             "description": "A fantastic game",
-            "genres": [1, 2],
+            "genres": [{"name":"MMO"},{"name": "RPG"}],
             "pegi": 3,
             "release_date": "2025-01-01",
             "global_rating": "0.0"
@@ -234,10 +234,15 @@ def test_show_games_to_play(mocked_get_game, mocked_get, mocked_print):
     response_games_to_play.json.return_value = [
         {
             "id": 10,
-            "game": {
-                "id": 1,
-                "global_rating": "4.5"
-            }
+            "game":         {
+            "id": 1,
+            "title": "GoodGame",
+            "description": "A fantastic game",
+            "genres": [{"name":"MMO"},{"name": "RPG"}],
+            "pegi": 3,
+            "release_date": "2025-01-01",
+            "global_rating": "0.0"
+        }
         }
     ]
 
@@ -374,8 +379,7 @@ def test_add_game_to_games_to_play_invalid_input_retry(mock_show_to_play, mock_s
 
 @patch("app.requests.get")
 @patch("builtins.print")
-@patch("app.App._App__get_game")
-def test_show_games_to_play_no_votes(mocked_get_game, mocked_print, mocked_get):
+def test_show_games_to_play_no_votes(mocked_print, mocked_get):
     app = App()
     app._App__token = Token("a" * 40)
 
@@ -385,27 +389,22 @@ def test_show_games_to_play_no_votes(mocked_get_game, mocked_print, mocked_get):
             "id": 100,
             "game": {
                 "id": 1,
+                "title": "GoodGame",
+                "description": "A fantastic game",
+                "genres": [{"name":"MMO"},{"name": "RPG"}],
+                "pegi": 3,
+                "release_date": "2025-01-01",
                 "global_rating": "0.0"
             }
         }
     ]
     mocked_get.return_value = response_list
 
-    mocked_get_game.return_value = (
-        GameTitle("Unrated Game"),
-        GameDescription("Test description"),
-        [Genre("Indie")],
-        Pegi(3),
-        "2025-01-01",
-        "No votes yet"
-    )
-
     app._App__show_games_to_play()
 
     printed_output = "".join([str(call.args[0]) if call.args else "" for call in mocked_print.call_args_list])
 
     assert "No votes yet" in printed_output
-    assert "Unrated Game" in printed_output
 
 
 @patch("app.requests.get")
@@ -416,12 +415,13 @@ def test_show_games_rating_parsing(mocked_get_genre, mocked_print, mocked_get):
 
     # rating to forse else branch
     response_mock = Mock()
+
     response_mock.json.return_value = [
         {
             "id": 1,
             "title": "Rated Game",
             "description": "A game with a rating",
-            "genres": [1],
+            "genres": [{"name": "MMO"}, {"name": "RPG"}],
             "pegi": 12,
             "release_date": "2023-10-10",
             "global_rating": "4.5"
@@ -668,6 +668,8 @@ def test_show_games_played(mocked_get_genre, mocked_print, mocked_get):
     app = App()
     app._App__token = Token("a" * 40)
 
+
+
     response_mock = Mock()
     response_mock.json.return_value = [
         {
@@ -677,7 +679,7 @@ def test_show_games_played(mocked_get_genre, mocked_print, mocked_get):
                 "id": 1,
                 "title": "Played Masterpiece",
                 "description": "A game I have finished",
-                "genres": [1],
+                "genres": [{"name": "MMO"}, {"name": "RPG"}],
                 "pegi": 18,
                 "release_date": "2024-05-20"
             }
@@ -1032,3 +1034,40 @@ def test_add_game_to_games_played_cancel(mock_show_played, mock_show_games, mock
     printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
     assert "Cancelled!" in printed_output
     mock_post.assert_not_called()
+
+@patch("builtins.input", side_effect=["0"])
+@patch("builtins.print")
+@patch("requests.get")
+@patch("app.GlobalRating.create", side_effect=["7.50"])
+def test_app_show_games_to_play_with_vote(mocked_create, mocked_get, mocked_print, mock_input):
+    response = Mock()
+    response.json.return_value = [
+        {
+            "id": 10,
+            "game": {
+                "id": 1,
+                "title": "RatedGame",
+                "description": "A rated game",
+                "genres": [{"name": "Action"}, {"name": "RPG"}],
+                "pegi": 18,
+                "release_date": "2025-05-01",
+                "global_rating": "7.5"
+            }
+        }
+    ]
+
+    mocked_get.return_value = response
+
+    app = App()
+    app._App__show_games_to_play()
+
+
+    mocked_print.assert_any_call(
+        "1     | "
+        "RatedGame                      | "
+        "A rated game                             | "
+        "Action, RPG          | "
+        "PEGI 18 | "
+        "2025-05-01   | "
+        "7.50"
+    )

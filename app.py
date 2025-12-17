@@ -182,7 +182,6 @@ class App:
         print(
             f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE BY USERS':13}")
         print("-" * 157)
-        # print(response.json())
         for index, game in enumerate(response.json(), start=1):
             ids.append(game.get("id"))
             title = str(GameTitle(game.get("title")))
