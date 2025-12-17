@@ -396,8 +396,9 @@ class App:
         description = self.__read("Description", GameDescription)
         title = self.__read("Title", GameTitle)
         genres_number = self.__read("Number of genres", builder_number_of_genres)
-        genres_to_choose = self.__show_genres()
-        genres = []
+        genres_to_choose= self.__show_genres()
+
+        selected_genres = []
 
         for i in range(genres_number):
             while True:
@@ -405,9 +406,9 @@ class App:
                     index = int(input(f"Index {i + 1}: "))
                     validate("index", index, min_value=1, max_value=len(genres_to_choose))
 
-                    selected_genre = genres_to_choose[index - 1]
-                    if selected_genre not in genres:
-                        genres.append(selected_genre)
+                    selected_genre_id = genres_to_choose[index - 1]
+                    if selected_genre_id not in selected_genres:
+                        selected_genres.append(selected_genre_id)
                         break
                     else:
                         print("Genre already selected. Please choose a different one.")
@@ -420,13 +421,15 @@ class App:
         month = self.__read("Release month", builder_month)
         day = self.__read("Release day", builder_day)
 
-        data = {
-            "description": str(description),
-            "title": str(title),
-            "pegi": pegi.pegi_ranking_int,
-            "release_date": f"{year}-{month:02d}-{day:02d}",
-            "genres": genres
-        }
+        data = [
+            ("description", str(description)),
+            ("title", str(title)),
+            ("pegi", str(pegi.pegi_ranking_int)),
+            ("release_date", f"{year}-{month:02d}-{day:02d}"),
+        ]
+
+        for genre_id in selected_genres:
+            data.append(("genres", str(genre_id)))
 
         # Adding a default image otherwise the backend gets angry
         with open("placeholder_images/useful_formula.jpg", 'rb') as img_file:
