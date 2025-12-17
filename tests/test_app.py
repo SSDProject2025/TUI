@@ -508,3 +508,23 @@ def test_add_genre_success(mock_get_genre, mock_show_genres, mock_print, mock_in
 
     printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
     assert "Genre added successfully!" in printed_messages
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+@patch("app.App._App__show_games_to_play")
+def test_add_game_to_games_to_play_already_in_list(mock_show_to_play, mock_show_games, mock_input, mock_print,
+                                                   mock_post):
+    app = App()
+    mock_show_games.return_value = [10, 20]
+
+    mock_show_to_play.return_value = ([20], [1])
+    mock_input.return_value = "2"
+
+    app._App__add_game_to_games_to_play()
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Game already in list" in printed_messages
+    mock_post.assert_not_called()
