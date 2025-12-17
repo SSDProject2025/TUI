@@ -1,4 +1,5 @@
 import pytest
+from valid8 import ValidationError
 
 from app import App
 from main import main
@@ -528,3 +529,18 @@ def test_add_game_to_games_to_play_already_in_list(mock_show_to_play, mock_show_
     printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
     assert "Game already in list" in printed_messages
     mock_post.assert_not_called()
+
+
+@patch("getpass.getpass")
+@patch("builtins.print")
+def test_read_password_error(mock_print, mock_getpass):
+    mock_builder = Mock()
+    mock_builder.side_effect = [ValueError("invalid password"), "valid_password123"]
+
+    mock_getpass.side_effect = ["input1", "input2"]
+
+    result = App._App__read_password("Password", mock_builder)
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "invalid password" in printed_messages
+
+    assert result == "valid_password123"
