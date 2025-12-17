@@ -740,7 +740,57 @@ class App:
         print()
 
     def __show_games_played_given_user(self):
-        pass
+        username = self.__read('Username', Username)
+
+        response = requests.get(
+            f"{self.__base_url}/games-played/owner/{str(username)}/",
+            headers={"Authorization": f"Token {str(self.__token)}"},
+        )
+
+        if (len(response.json()) == 0):
+            print(f"No games for user {str(username)}")
+            return
+
+        print(f"GAMES PLAYED BY {str(username)}")
+        print(
+            f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {f'VOTE GIVEN BY {str(username)}':30}"
+        )
+        print("-" * 157)
+
+        for index, item in enumerate(response.json(), start=1):
+            game = item["game"]
+
+            title = GameTitle(game["title"])
+            description = GameDescription(game["description"])
+            genres = [Genre(g["name"]) for g in game["genres"]]
+            pegi = Pegi(game["pegi"])
+            release_date = game["release_date"]
+
+            vote = Vote(item["rating"])
+
+            title_str = str(title)
+            description_str = str(description)
+            g = ', '.join(str(gen) for gen in genres)
+            pegi_str = str(pegi)
+            vote_str = str(vote)
+
+            title_lines = textwrap.wrap(title_str, 30)
+            description_lines = textwrap.wrap(description_str, 40)
+            num_lines = max(len(title_lines), len(description_lines))
+
+            for i in range(num_lines):
+                print(
+                    f"{str(index) if i == 0 else '':5} | "
+                    f"{title_lines[i] if i < len(title_lines) else '':30} | "
+                    f"{description_lines[i] if i < len(description_lines) else '':40} | "
+                    f"{g if i == 0 else '':20} | "
+                    f"{pegi_str if i == 0 else '':6} | "
+                    f"{release_date if i == 0 else '':12} | "
+                    f"{vote_str if i == 0 else ''}"
+                )
+
+
+        print()
 
     @staticmethod
     def __read_password(prompt: str, builder: Callable) -> Any:
