@@ -466,3 +466,45 @@ def test_show_games_played(mocked_get_genre, mocked_print, mocked_get):
     assert "Played Masterpiece" in printed_output
     assert "RPG" in printed_output
     assert "5" in printed_output
+
+
+@patch("builtins.input")
+@patch("builtins.print")
+@patch("app.App._App__show_genres")
+@patch("app.App._App__get_genre")
+def test_add_genre_already_exists(mock_get_genre, mock_show_genres, mock_print, mock_input):
+    app = App()
+    mock_input.return_value = "RPG"
+    mock_show_genres.return_value = [1, 2]
+
+    mock_get_genre.side_effect = [Genre("Action"), Genre("RPG")]
+
+    app._App__add_genre()
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Genre already added" in printed_messages
+
+
+@patch("app.requests.post")
+@patch("builtins.input")
+@patch("builtins.print")
+@patch("app.App._App__show_genres")
+@patch("app.App._App__get_genre")
+def test_add_genre_success(mock_get_genre, mock_show_genres, mock_print, mock_input, mock_post):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    mock_input.return_value = "Strategy"
+
+    mock_show_genres.return_value = [1]
+    mock_get_genre.return_value = Genre("Racing")
+
+    mock_post.return_value = Mock(status_code=201)
+
+    app._App__add_genre()
+
+    args, kwargs = mock_post.call_args
+    assert kwargs['json']['name'] == "Strategy"
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Genre added successfully!" in printed_messages
