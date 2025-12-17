@@ -633,3 +633,53 @@ def test_remove_game_cancel(mock_show_games, mock_input, mock_print, mock_delete
     assert "Cancelled!" in printed_messages
 
     mock_delete.assert_not_called()
+
+
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_genres")
+def test_remove_genre_success(mock_show_genres, mock_input, mock_print, mock_delete):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    # 1. Mock existing genre IDs (e.g., ID 5 for Action, ID 9 for Horror)
+    mock_show_genres.return_value = [5, 9]
+
+    # 2. User selects index "2" (corresponds to genre ID 9)
+    mock_input.return_value = "2"
+
+    # 3. Mock server response for successful deletion
+    mock_delete.return_value = Mock(status_code=204)
+
+    app._App__remove_genre()
+
+    # Verify DELETE request was sent to the correct endpoint with genre ID 9
+    args, kwargs = mock_delete.call_args
+    assert "/genre/9/" in args[0]
+    assert kwargs['headers']['Authorization'] == f"Token {str(app._App__token)}"
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Genre removed successfully!" in printed_messages
+
+
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_genres")
+def test_remove_genre_cancel(mock_show_genres, mock_input, mock_print, mock_delete):
+    app = App()
+
+    # 1. Mock existing genre IDs
+    mock_show_genres.return_value = [5, 9]
+
+    # 2. User enters "0" to abort the operation
+    mock_input.return_value = "0"
+
+    app._App__remove_genre()
+
+    # Verify the "Cancelled!" message was printed
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Cancelled!" in printed_messages
+
+    mock_delete.assert_not_called()
