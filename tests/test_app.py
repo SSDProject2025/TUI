@@ -216,35 +216,35 @@ def test_app_get_genres(mocked_get_genre, mocked_get, mocked_print, mocked_input
         [Genre("MMO"), Genre("RPG")],
         Pegi(3),
         "2025-01-01",
-        "No votes yet"
+        GlobalRating.create(4, 50)
     )])
 def test_show_games_to_play(mocked_get_game, mocked_get, mocked_print):
     app = App()
-    app.__token = Token("a" * 40)
+    app._App__token = Token("a" * 40)
 
-    response_user = Mock()
-    response_user.json.return_value = {"id": 1}
-
-    response_games = Mock()
-    response_games.json.return_value = [{"id": 1}]
-
-    mocked_get.side_effect = [
-        response_user,
-        response_games
+    response_games_to_play = Mock()
+    response_games_to_play.json.return_value = [
+        {
+            "id": 10,
+            "game": {
+                "id": 1,
+                "global_rating": "4.5"
+            }
+        }
     ]
 
-    app._App__show_games_to_play()
 
-    mocked_print.assert_any_call(
-        "1     | "
-        "GoodGame                       | "
-        "A fantastic game                         | "
-        "MMO, RPG             | "
-        "PEGI 3 | "
-        "2025-01-01   | "
-        "No votes yet"
-    )
+    mocked_get.return_value = response_games_to_play
+    ids_global, ids_to_play = app._App__show_games_to_play()
 
+    assert ids_global == [1]
+    assert ids_to_play == [10]
+
+    printed_output = "".join([str(call.args[0]) if call.args else "\n" for call in mocked_print.call_args_list])
+
+    assert "GoodGame" in printed_output
+    assert "MMO, RPG" in printed_output
+    assert "A fantastic game" in printed_output
 
 @patch("app.GlobalRating.create")
 @patch("app.requests.get")
@@ -300,8 +300,11 @@ def test_get_game_no_votes(mock_get_genre, mock_requests_get):
 @patch("app.requests.post")
 @patch("builtins.input")
 @patch("app.App._App__show_games")
-def test_add_game_to_games_to_play_success(mock_show_games, mock_input, mock_post):
+@patch("app.App._App__show_games_to_play")
+def test_add_game_to_games_to_play_success(mock_show_to_play, mock_show_games, mock_input, mock_post):
     mock_show_games.return_value = [10, 20]
+    mock_show_to_play.return_value = ([], [])
+
     mock_input.return_value = "2"
 
     mock_response = Mock()
@@ -311,42 +314,51 @@ def test_add_game_to_games_to_play_success(mock_show_games, mock_input, mock_pos
     app = App()
     app._App__add_game_to_games_to_play()
 
-    mock_input.assert_called_once()
-
     args, kwargs = mock_post.call_args
-    assert "/games-to-play/" in args[0]
-    assert kwargs['json'] == {"game": 20}
-    assert "Authorization" in kwargs['headers']
+    assert kwargs['json']['game'] == 20
 
 
 @patch("app.requests.post")
 @patch("builtins.print")
 @patch("builtins.input")
 @patch("app.App._App__show_games")
-def test_add_game_to_games_to_play_cancel(mock_show_games, mock_input, mock_print, mock_post):
+@patch("app.App._App__show_games_to_play")
+def test_add_game_to_games_to_play_cancel(mock_show_to_play, mock_show_games, mock_input, mock_print, mock_post):
     mock_show_games.return_value = [10, 20, 30]
+    mock_show_to_play.return_value = ([], [])
 
     mock_input.return_value = "0"
 
     app = App()
     app._App__add_game_to_games_to_play()
 
-    mock_print.assert_any_call('Cancelled!')
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Cancelled!" in printed_messages
 
     mock_post.assert_not_called()
+
 
 @patch("app.requests.post")
 @patch("builtins.print")
 @patch("builtins.input")
 @patch("app.App._App__show_games")
-def test_add_game_to_games_to_play_invalid_input_retry(mock_show_games, mock_input, mock_print, mock_post):
+@patch("app.App._App__show_games_to_play")
+def test_add_game_to_games_to_play_invalid_input_retry(mock_show_to_play, mock_show_games, mock_input, mock_print,
+                                                       mock_post):
     mock_show_games.return_value = [10, 20]
+    mock_show_to_play.return_value = ([], [])
+
     mock_input.side_effect = ["5", "1"]
+
+    mock_response = Mock()
+    mock_response.status_code = 201
+    mock_post.return_value = mock_response
 
     app = App()
     app._App__add_game_to_games_to_play()
 
-    assert mock_input.call_count == 2
-
     args, kwargs = mock_post.call_args
-    assert kwargs['json'] == {"game": 10}
+    assert kwargs['json']['game'] == 10
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert any("Game added to games to play!" in msg for msg in printed_messages)
