@@ -362,3 +362,69 @@ def test_add_game_to_games_to_play_invalid_input_retry(mock_show_to_play, mock_s
 
     printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
     assert any("Game added to games to play!" in msg for msg in printed_messages)
+
+
+@patch("app.requests.get")
+@patch("builtins.print")
+@patch("app.App._App__get_game")
+def test_show_games_to_play_no_votes(mocked_get_game, mocked_print, mocked_get):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    response_list = Mock()
+    response_list.json.return_value = [
+        {
+            "id": 100,
+            "game": {
+                "id": 1,
+                "global_rating": "0.0"
+            }
+        }
+    ]
+    mocked_get.return_value = response_list
+
+    mocked_get_game.return_value = (
+        GameTitle("Unrated Game"),
+        GameDescription("Test description"),
+        [Genre("Indie")],
+        Pegi(3),
+        "2025-01-01",
+        "No votes yet"
+    )
+
+    app._App__show_games_to_play()
+
+    printed_output = "".join([str(call.args[0]) if call.args else "" for call in mocked_print.call_args_list])
+
+    assert "No votes yet" in printed_output
+    assert "Unrated Game" in printed_output
+
+
+@patch("app.requests.get")
+@patch("builtins.print")
+@patch("app.App._App__get_genre")
+def test_show_games_rating_parsing(mocked_get_genre, mocked_print, mocked_get):
+    app = App()
+
+    # rating to forse else branch
+    response_mock = Mock()
+    response_mock.json.return_value = [
+        {
+            "id": 1,
+            "title": "Rated Game",
+            "description": "A game with a rating",
+            "genres": [1],
+            "pegi": 12,
+            "release_date": "2023-10-10",
+            "global_rating": "4.5"
+        }
+    ]
+    mocked_get.return_value = response_mock
+    mocked_get_genre.return_value = Genre("Action")
+
+    app._App__show_games()
+
+    printed_output = "".join([str(call.args[0]) if call.args else "" for call in mocked_print.call_args_list])
+
+    assert "4.50" in printed_output or "4.5" in printed_output
+    assert "Rated Game" in printed_output
