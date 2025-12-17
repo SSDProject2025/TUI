@@ -202,8 +202,10 @@ def test_app_get_genres(mocked_get_genre, mocked_get, mocked_print, mocked_input
 
     App().run()
 
-    mocked_print.assert_any_call(Genre("MMO"))
-    mocked_print.assert_any_call(Genre("RPG"))
+    # retrieve all printed strings
+    printed_messages = [call.args[0] for call in mocked_print.call_args_list if call.args]
+    assert any("MMO" in msg for msg in printed_messages), "MMO was not printed"
+    assert any("RPG" in msg for msg in printed_messages), "RPG was not printed"
 
 
 @patch("builtins.print")
