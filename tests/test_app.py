@@ -683,3 +683,67 @@ def test_remove_genre_cancel(mock_show_genres, mock_input, mock_print, mock_dele
     assert "Cancelled!" in printed_messages
 
     mock_delete.assert_not_called()
+
+
+@patch("app.requests.get")
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+def test_ban_user_success(mock_input, mock_print, mock_delete, mock_get):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    # 1. Mock the list of users returned by the server
+    # We include a long email to trigger the textwrap logic in the table
+    mock_get.return_value = Mock(status_code=200)
+    mock_get.return_value.json.return_value = [
+        {
+            "id": 101,
+            "username": "nameuser",
+            "email": "nameuser.very.long.email.address@gmail.com"
+        },
+        {
+            "id": 102,
+            "username": "admin",
+            "email": "admin@gmail.com"
+        }
+    ]
+
+    # 2. User selects index "1" to ban the first user (ID 101)
+    mock_input.return_value = "1"
+
+    # 3. Mock the delete response
+    mock_delete.return_value = Mock(status_code=204)
+
+    app._App__ban_user()
+
+    # Verify the DELETE call targets the correct user ID
+    args, _ = mock_delete.call_args
+    assert "/user/101/" in args[0]
+
+    # Verify success message
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "User banned successfully!" in printed_output
+
+
+@patch("app.requests.get")
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+def test_ban_user_cancel(mock_input, mock_print, mock_delete, mock_get):
+    app = App()
+
+    # 1. Mock the user list
+    mock_get.return_value = Mock(status_code=200)
+    mock_get.return_value.json.return_value = [{"id": 101, "username": "test", "email": "test@gmail.com"}]
+
+    # 2. User enters "0" to cancel the operation
+    mock_input.return_value = "0"
+
+    app._App__ban_user()
+
+    # Verify "Cancelled!" message
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "Cancelled!" in printed_output
+
+    mock_delete.assert_not_called()
