@@ -2,6 +2,7 @@ import pytest
 from valid8 import ValidationError
 
 from app import App
+from exceptions.primitives.game_title_exception import GameTitleException
 from main import main
 from unittest.mock import patch, Mock
 
@@ -544,3 +545,23 @@ def test_read_password_error(mock_print, mock_getpass):
     assert "invalid password" in printed_messages
 
     assert result == "valid_password123"
+
+
+@patch("builtins.input")
+@patch("builtins.print")
+def test_read_custom_exception(mock_print, mock_input):
+    mock_builder = Mock()
+    custom_error = GameTitleException()
+    custom_error.help_message = "Invalid title" # first attempt fails
+
+    mock_builder.side_effect = [custom_error, "valid title"] # first attempt ok -> exit loop
+
+    mock_input.side_effect = ["invalid", "valid"]
+
+    result = App._App__read("insert title", mock_builder)
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+
+    assert "Invalid title" in printed_messages
+
+    assert result == "valid title"
