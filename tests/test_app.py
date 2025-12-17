@@ -23,19 +23,25 @@ def test_app_main(mocked_print, mocked_input):
     mocked_print.assert_any_call("Goodbye!")
     mocked_input.assert_called()
 
+@patch("builtins.input", side_effect=["1", "user@gmail.com"])
 @patch("getpass.getpass", side_effect=["string12"])
+@patch("requests.get")
 @patch("requests.post")
-@patch("builtins.input", side_effect=["1", "user@gmail.com", "4"])
 @patch("builtins.print")
-def test_app_login(mocked_print, mocked_input, mocked_post, mocked_getpass):
-    response = Mock()
-    response.status_code = 200
-    response.json.return_value = {"key": "a" * 40}
-    mocked_post.return_value = response
+def test_app_login(mocked_print, mocked_post, mocked_get, mocked_getpass, mocked_input):
+    login_response = Mock()
+    login_response.status_code = 200
+    login_response.json.return_value = {"key": "a" * 40}
+    mocked_post.return_value = login_response
+
+    me_response = Mock()
+    me_response.json.return_value = {"is_superuser": False}
+    mocked_get.return_value = me_response
 
     App().run()
 
     mocked_print.assert_any_call("\nLogged in successfully!")
+
 
 @patch("getpass.getpass", side_effect=["string12"])
 @patch("requests.get")
