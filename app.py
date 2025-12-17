@@ -9,8 +9,16 @@ import requests
 from requests import RequestException
 from valid8 import ValidationError, validate
 
+from exceptions.primitives.game_description_exception import GameDescriptionException
+from exceptions.primitives.game_title_exception import GameTitleException
+from exceptions.primitives.genre_exception import GenreException
+from exceptions.primitives.global_rating_exception import GlobalRatingException
 from exceptions.primitives.password_exception import PasswordException
+from exceptions.primitives.pegi_ranking_exception import PegiRankingException
+from exceptions.primitives.publisher_exception import PublisherException
+from exceptions.primitives.rating_count_exception import RatingCountException
 from exceptions.primitives.username_exception import UsernameException
+from exceptions.primitives.vote_exception import VoteException
 from functionalities.description import Description
 from functionalities.entry import Entry
 from primitives.email import Email
@@ -24,6 +32,7 @@ from primitives.token import Token
 from primitives.username import Username
 from functionalities.menu import Menu
 from primitives.vote import Vote
+
 
 
 class App:
@@ -682,6 +691,9 @@ class App:
                 return res
             except (TypeError, ValueError, ValidationError) as e:
                 print(e)
+            except (GameTitleException, GameDescriptionException, GenreException,
+                    GlobalRatingException, PegiRankingException, PublisherException, RatingCountException, VoteException) as e:
+                print(e.help_message)
 
     def __run(self) -> None:
         self.__menu.run()
