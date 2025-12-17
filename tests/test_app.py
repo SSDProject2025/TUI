@@ -565,3 +565,71 @@ def test_read_custom_exception(mock_print, mock_input):
     assert "Invalid title" in printed_messages
 
     assert result == "valid title"
+
+
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+def test_remove_game_success(mock_show_games, mock_input, mock_print, mock_delete):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    # 1. Mock available games (IDs 10, 20, 30)
+    mock_show_games.return_value = [10, 20, 30]
+
+    # 2. User selects index "2" (corresponds to game ID 20)
+    mock_input.return_value = "2"
+
+    # 3. Mock server response for DELETE
+    mock_delete.return_value = Mock(status_code=204)
+
+    # Execution
+    app._App__remove_game()
+
+    # Verify DELETE call was made to the correct URL with correct ID
+    args, kwargs = mock_delete.call_args
+    assert "/game/20/" in args[0]
+
+    # Verify success message
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Game removed successfully!" in printed_messages
+
+
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+def test_remove_game_cancel(mock_show_games, mock_input, mock_print, mock_delete):
+    app = App()
+    mock_show_games.return_value = [10, 20]
+    mock_input.return_value = "0"
+
+    app._App__remove_game()
+
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Cancelled!" in printed_messages
+
+    mock_delete.assert_not_called()
+
+
+@patch("app.requests.delete")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+def test_remove_game_cancel(mock_show_games, mock_input, mock_print, mock_delete):
+    app = App()
+
+    # 1. Mock available games
+    mock_show_games.return_value = [10, 20]
+
+    # 2. User enters "0" to cancel
+    mock_input.return_value = "0"
+
+    app._App__remove_game()
+
+    # Verify cancellation message
+    printed_messages = [str(call.args[0]) for call in mock_print.call_args_list if call.args]
+    assert "Cancelled!" in printed_messages
+
+    mock_delete.assert_not_called()
