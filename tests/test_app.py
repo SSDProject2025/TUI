@@ -554,7 +554,7 @@ def test_add_genre_success(mock_get_genre, mock_show_genres, mock_print, mock_in
 @patch("builtins.input", side_effect=["1"])
 @patch("requests.delete")
 @patch("app.App._App__show_games_to_play", side_effect=[([10], [1])])
-def test_remove_game_from_games_to_play_success(mocked_show_games_to_play, mocked_delete, mocked_input, mocked_print,):
+def test_remove_game_from_games_to_play_success(mocked_show_games_to_play, mocked_delete, mocked_input, mocked_print):
 
     response = Mock()
     response.status_code = 204
@@ -571,7 +571,7 @@ def test_remove_game_from_games_to_play_success(mocked_show_games_to_play, mocke
 @patch("builtins.input", side_effect=["0"])
 @patch("requests.delete")
 @patch("app.App._App__show_games_to_play", side_effect=[([10], [1])])
-def test_remove_game_from_games_to_play_cancelled(mocked_show_games_to_play, mocked_delete, mocked_input, mocked_print,):
+def test_remove_game_from_games_to_play_cancelled(mocked_show_games_to_play, mocked_delete, mocked_input, mocked_print):
 
     response = Mock()
     response.status_code = 204
@@ -580,5 +580,33 @@ def test_remove_game_from_games_to_play_cancelled(mocked_show_games_to_play, moc
     app = App()
     app._App__remove_game_from_games_to_play()
 
+
+    mocked_print.assert_any_call("Cancelled!")
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["1"])
+@patch("requests.delete")
+@patch("app.App._App__show_games_played", side_effect=[([10], [1])])
+def test_remove_game_from_games_played_success(mocked_show_games_played, mocked_delete, mocked_input, mocked_print):
+    response = Mock()
+    response.status_code = 204
+    mocked_delete.return_value = response
+
+    app = App()
+    app._App__remove_game_from_games_played()
+
+    mocked_print.assert_any_call("Game removed from games played")
+
+@patch("builtins.print")
+@patch("builtins.input", side_effect=["0"])
+@patch("requests.delete")
+@patch("app.App._App__show_games_played", side_effect=[([10], [1])])
+def test_remove_game_from_games_played_cancelled(mocked_show_games_played, mocked_delete, mocked_input, mocked_print):
+    response = Mock()
+    response.status_code = 204
+    mocked_delete.return_value = response
+
+    app = App()
+    app._App__remove_game_from_games_played()
 
     mocked_print.assert_any_call("Cancelled!")
