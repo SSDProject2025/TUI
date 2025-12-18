@@ -1206,3 +1206,177 @@ def test_show_games_played_given_user_no_games_for_user(mocked_get, mocked_print
     app._App__show_games_played_given_user()
 
     mocked_print.assert_any_call("No games for user testuser")
+
+
+@patch("app.requests.get")
+@patch("builtins.print")
+def test_show_games_handles_invalid_primitive_data_and_continues(mocked_print, mocked_get):
+    """
+    Test that __show_games handles invalid primitive data (e.g., wrong PEGI)
+    without crashing, printing an error message instead.
+    """
+    app = App()
+
+    # Mocking response: 1st is valid, 2nd has invalid PEGI (99), 3rd is valid
+    response_mock = Mock()
+    response_mock.status_code = 200
+    response_mock.json.return_value = [
+        {
+            "id": 1,
+            "title": "Valid Game 1",
+            "description": "Desc",
+            "genres": [{"name": "Action"}],
+            "pegi": 12,
+            "release_date": "2023-01-01",
+            "global_rating": 8.5
+        },
+        {
+            "id": 2,
+            "title": "Invalid Game",
+            "description": "Fails because of PEGI",
+            "genres": [{"name": "Action"}],
+            "pegi": 99,  # This will raise PegiRankingException
+            "release_date": "2023-01-01",
+            "global_rating": 5.0
+        },
+        {
+            "id": 3,
+            "title": "Valid Game 2",
+            "description": "Desc",
+            "genres": [{"name": "RPG"}],
+            "pegi": 18,
+            "release_date": "2023-05-05",
+            "global_rating": 9.0
+        }
+    ]
+    mocked_get.return_value = response_mock
+
+    # Execution
+    ids = app._App__show_games()
+
+    # Verify that IDs 1 and 3 are returned, but 2 is skipped
+    assert 1 in ids
+    assert 3 in ids
+    assert 2 not in ids
+
+    # Check for the printed error message in the logs
+    printed_messages = [str(call.args[0]) for call in mocked_print.call_args_list if call.args]
+    assert any("ERROR: Game ID 2 has invalid data" in msg for msg in printed_messages)
+    assert any("Valid Game 1" in msg for msg in printed_messages)
+    assert any("Valid Game 2" in msg for msg in printed_messages)
+
+
+@patch("app.requests.get")
+@patch("builtins.print")
+def test_show_games_handles_invalid_genre_structure_and_continues(mocked_print, mocked_get):
+    """
+    Test that __show_games handles a genre that is not a dictionary
+    without crashing (checks the isinstance(g, dict) logic).
+    """
+    app = App()
+
+    response_mock = Mock()
+    response_mock.status_code = 200
+    response_mock.json.return_value = [
+        {
+            "id": 1,
+            "title": "Broken Genre Game",
+            "description": "Genre list contains an int instead of dict",
+            "genres": [1],  # Error: Should be {"name": "..."}
+            "pegi": 3,
+            "release_date": "2023-01-01",
+            "global_rating": "0.0"
+        },
+        {
+            "id": 2,
+            "title": "Valid Game After",
+            "description": "Desc",
+            "genres": [{"name": "Action"}],
+            "pegi": 12,
+            "release_date": "2023-01-01",
+            "global_rating": "0.0"
+        }
+    ]
+    mocked_get.return_value = response_mock
+
+    # Execution
+    ids = app._App__show_games()
+
+    # The game with broken genre might still print (with empty genres)
+    # depending on your exact internal logic in the loop,
+    # but the key is that it MUST NOT crash and should process Game ID 2.
+    assert 2 in ids
+
+    printed_messages = [str(call.args[0]) for call in mocked_print.call_args_list if call.args]
+    assert any("Valid Game After" in msg for msg in printed_messages)
+
+
+@patch("app.requests.get")
+@patch("app.App._App__get_genre")
+def test_get_game_genres_as_dicts(mock_get_genre, mock_requests_get):
+    """
+    Test that __get_game correctly handles genres when they are
+    returned as dictionaries (objects) instead of simple integers.
+    This touches the line: if isinstance(g, dict): g_id = g.get('id')
+    """
+    app = App()
+
+    # Mock della risposta di __get_genre per restituire un oggetto Genre valido
+    mock_get_genre.return_value = Genre("RPG")
+
+    # Simuliamo una risposta dove 'genres' è una lista di dizionari
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        "id": 1,
+        "title": "Nested Genre Game",
+        "description": "A game where genres are objects",
+        "genres": [{"id": 10, "name": "RPG"}],  # <--- Qui g è un dict
+        "pegi": 12,
+        "release_date": "2024-12-18",
+        "global_rating": "8.5"
+    }
+    mock_requests_get.return_value = mock_response
+
+    # Esecuzione del metodo privato
+    result = app._App__get_game(1)
+
+    # Verifiche
+    # 1. Controlliamo che __get_genre sia stato chiamato con l'ID estratto dal dizionario (10)
+    mock_get_genre.assert_called_with(10)
+
+    # 2. Verifichiamo che il risultato contenga l'oggetto Genre correttamente creato
+    assert isinstance(result[2][0], Genre)
+    assert str(result[2][0]) == "RPG"
+
+
+@patch("app.requests.get")
+@patch("app.App._App__get_genre")
+def test_get_game_rating_parsing_error(mock_get_genre, mock_requests_get):
+    """
+    Test that __get_game handles cases where the global_rating format
+    causes a ValueError or IndexError during parsing.
+    This touches the line: except (ValueError, IndexError): rating_obj = "Rating Error"
+    """
+    app = App()
+
+    # Mocking a response where global_rating is a malformed string
+    # "10.abc" will cause a ValueError when trying to convert int("abc")
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        "id": 1,
+        "title": "Malformed Rating Game",
+        "description": "A game with a rating that cannot be parsed",
+        "genres": [1],
+        "pegi": 12,
+        "release_date": "2024-12-18",
+        "global_rating": "10.abc"
+    }
+    mock_requests_get.return_value = mock_response
+    mock_get_genre.return_value = Genre("Action")
+
+    # Execution
+    result = app._App__get_game(1)
+
+    # Verification
+    # The 6th element of the tuple (index 5) should be the error string
+    assert result[5] == "Rating Error"

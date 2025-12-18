@@ -175,45 +175,70 @@ class App:
         return Genre(response.json().get("name"))
 
     def __show_games(self) -> List[int]:
+
         response = requests.get(f"{self.__base_url}/game/")
+        response.raise_for_status()
+        games_data = response.json()
+
 
         ids = []
-
         print(
-            f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE BY USERS':13}")
+            f"{'INDEX':5} | {'TITLE':30} | {'DESCRIPTION':40} | {'GENRE':20} | {'PEGI':6} | {'RELEASE DATE':12} | {'VOTE':13}")
         print("-" * 157)
-        for index, game in enumerate(response.json(), start=1):
-            ids.append(game.get("id"))
-            title = str(GameTitle(game.get("title")))
-            description = str(Description(game.get("description")))
-            genres = [Genre(genre.get("name")) for genre in game.get("genres")]
-            pegi = str(Pegi(game.get("pegi")))
-            release_date = game.get("release_date")
 
-            raw_rating = str(game.get("global_rating"))
-            if raw_rating == "0.0":
-                global_rating = "No votes yet"
-            else:
-                integer_str, decimal_str = raw_rating.split(".")
-                decimal_str = decimal_str.ljust(2, '0')
-                global_rating = GlobalRating.create(int(integer_str), int(decimal_str))
+        for index, game in enumerate(games_data, start=1):
+            try:
+                # 1. Estrazione sicura dei dati
+                g_id = game.get("id")
+                raw_title = game.get("title", "Unknown Title")
+                raw_desc = game.get("description", "No description available")
+                raw_pegi = game.get("pegi", 3)
+                raw_date = game.get("release_date", "N/A")
+                raw_rating = game.get("global_rating", 0.0)
 
-            title_lines = textwrap.wrap(title, 30)
-            description_lines = textwrap.wrap(description, 40)
+                # 2. Conversione nelle tue Primitives (Qui può avvenire il crash)
+                # Se una di queste fallisce, il blocco 'except' cattura l'errore
+                title_obj = GameTitle(raw_title)
+                desc_obj = Description(raw_desc)
+                pegi_obj = Pegi(raw_pegi)
 
-            # Decide which number of line is the longest
-            num_lines = max(len(title_lines), len(description_lines))
+                # Generi (gestione lista sicura)
+                genres_list = game.get("genres", [])
+                genres = [Genre(g.get("name", "Unknown")) for g in genres_list if isinstance(g, dict)]
 
-            for i in range(num_lines):
-                idx = str(index) if i == 0 else ""
-                t = title_lines[i] if i < len(title_lines) else ""
-                d = description_lines[i] if i < len(description_lines) else ""
-                g = ', '.join(str(g) for g in genres) if i == 0 else ""
-                p = pegi if i == 0 else ""
-                r = release_date if i == 0 else ""
-                print(f"{idx:5} | {t:30} | {d:40} | {g:20} | {p:6} | {r:12} | {str(global_rating)}")
+                # 3. Logica Rating robusta
+                rating_str = str(raw_rating)
+                if rating_str == "0.0" or raw_rating == 0:
+                    display_rating = "No votes yet"
+                else:
+                    parts = rating_str.split(".")
+                    int_part = parts[0]
+                    dec_part = parts[1].ljust(2, '0')[:2] if len(parts) > 1 else "00"
+                    display_rating = str(GlobalRating.create(int(int_part), int(dec_part)))
+
+                # 4. Preparazione per la stampa
+                ids.append(g_id)
+                title_lines = textwrap.wrap(str(title_obj), 30)
+                description_lines = textwrap.wrap(str(desc_obj), 40)
+                genres_str = ', '.join(str(g) for g in genres)
+
+                num_lines = max(len(title_lines), len(description_lines))
+
+                for i in range(num_lines):
+                    idx = str(index) if i == 0 else ""
+                    t = title_lines[i] if i < len(title_lines) else ""
+                    d = description_lines[i] if i < len(description_lines) else ""
+                    g = genres_str if i == 0 else ""
+                    p = str(pegi_obj) if i == 0 else ""
+                    r = raw_date if i == 0 else ""
+                    v = display_rating if i == 0 else ""
+                    print(f"{idx:5} | {t:30} | {d:40} | {g:20} | {p:6} | {r:12} | {v}")
+
+            except Exception as e:
+                print(f"{index:5} | ERROR: Game ID {game.get('id')} has invalid data: {e}")
+                continue
+
         print()
-
         return ids
 
     def __show_genres(self, with_print=True) -> List[int]:
@@ -237,20 +262,37 @@ class App:
         response = requests.get(f"{self.__base_url}/game/{id}/")
         data = response.json()
 
-        raw_rating = str(data.get("global_rating"))
+        # --- Fix per i generi ---
+        genres_data = data.get("genres", [])
+        processed_genres = []
 
-        if raw_rating == "0.0":
+        for g in genres_data:
+            if isinstance(g, dict):
+                # Se è un dizionario, estraiamo l'id
+                g_id = g.get('id')
+            else:
+                # Se è già un intero, lo usiamo direttamente
+                g_id = g
+            processed_genres.append(self.__get_genre(g_id))
+
+        # --- Fix per il rating (evitiamo crash su formati strani) ---
+        raw_rating = str(data.get("global_rating", "0.0"))
+        if raw_rating == "0.0" or raw_rating == "None":
             rating_obj = "No votes yet"
         else:
-            integer_str, decimal_str = raw_rating.split(".")
-            decimal_str = decimal_str.ljust(2, '0')
-
-            rating_obj = GlobalRating.create(int(integer_str), int(decimal_str))
+            try:
+                parts = raw_rating.split(".")
+                integer_str = parts[0]
+                # Prendiamo solo i primi 2 decimali se presenti, altrimenti 00
+                decimal_str = parts[1].ljust(2, '0')[:2] if len(parts) > 1 else "00"
+                rating_obj = GlobalRating.create(int(integer_str), int(decimal_str))
+            except (ValueError, IndexError):
+                rating_obj = "Rating Error"
 
         return (
             GameTitle(data.get("title")),
             GameDescription(data.get("description")),
-            [self.__get_genre(g_id) for g_id in data.get("genres")],
+            processed_genres,
             Pegi(data.get("pegi")),
             data.get("release_date"),
             rating_obj
