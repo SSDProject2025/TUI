@@ -620,7 +620,10 @@ class App:
             headers={"Authorization": f"Token {str(self.__token)}"},
         )
 
-        print("Game added to games to play!")
+        if(response.status_code >= 200 and response.status_code < 300):
+            print("Game added to games to play!")
+        else:
+            print("Impossible to add this game to games to play")
 
     def __add_game_to_games_played(self) -> None:
         ids = self.__show_games()
@@ -652,7 +655,10 @@ class App:
             headers={"Authorization": f"Token {str(self.__token)}"},
         )
 
-        print("Game added to games played!")
+        if (response.status_code >= 200 and response.status_code < 300):
+            print("Game added to games played!")
+        else:
+            print("Impossible to add this game to games played")
 
     def __remove_game_from_games_to_play(self) -> None:
         ids_global, ids_to_play = self.__show_games_to_play()

@@ -1380,3 +1380,59 @@ def test_get_game_rating_parsing_error(mock_get_genre, mock_requests_get):
     # Verification
     # The 6th element of the tuple (index 5) should be the error string
     assert result[5] == "Rating Error"
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+@patch("app.App._App__show_games_played")
+def test_add_game_to_games_played_failed(mock_show_played, mock_show_games, mock_input, mock_print, mock_post):
+    app = App()
+    app._App__token = Token("a" * 40)
+
+    # 1. Setup available games (ID 10, 20) and empty played list
+    mock_show_games.return_value = [10, 20]
+    mock_show_played.return_value = ([], [])  # (ids_global, ids_played)
+
+    # 2. Mock user input: "2" (for game ID 20) and then "5" (for the Vote)
+    mock_input.side_effect = ["2", "5"]
+
+    # 3. Mock successful POST response
+    mock_post.return_value = Mock(status_code=400)
+
+    # Execution
+    app._App__add_game_to_games_played()
+
+    # Verify POST request contains both the game ID and the rating
+    args, kwargs = mock_post.call_args
+    assert kwargs['json']['game'] == 20
+    assert kwargs['json']['rating'] == 5
+
+    # Verify success message
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "Impossible to add this game to games played" in printed_output
+
+
+@patch("app.requests.post")
+@patch("builtins.print")
+@patch("builtins.input")
+@patch("app.App._App__show_games")
+@patch("app.App._App__show_games_to_play")
+def test_add_game_to_games_to_play_failed(mock_show_to_play, mock_show_games, mock_input, mock_print, mock_post):
+    app = App()
+
+    mock_show_games.return_value = [100, 200]
+    mock_show_to_play.return_value = ([], [])
+
+    mock_input.side_effect = ["1"]
+    mock_post.return_value = Mock(status_code=400)
+
+    app._App__add_game_to_games_to_play()
+
+    args, kwargs = mock_post.call_args
+    assert kwargs['json']['game'] == 100
+    assert "rating" not in kwargs['json']
+
+    printed_output = "".join([str(call.args[0]) for call in mock_print.call_args_list if call.args])
+    assert "Impossible to add this game to games to play" in printed_output
